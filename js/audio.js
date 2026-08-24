@@ -116,6 +116,10 @@ class Sfx {
       case 'throw': this.noise(out, { dur: 0.1, gain: 0.2 * vol, type: 'bandpass', f0: 600 }); break;
       case 'ui': this.tone(out, { dur: 0.04, gain: 0.15 * vol, type: 'square', f0: 720 }); break;
       case 'spawn': this.tone(out, { dur: 0.09, gain: 0.2 * vol, type: 'triangle', f0: 520, f1: 1040 }); break;
+      case 'pickup':
+        this.tone(out, { dur: 0.05, gain: 0.2 * vol, type: 'triangle', f0: 660 });
+        setTimeout(() => { if (this.ctx) this.tone(this._out(null), { dur: 0.07, gain: 0.2 * vol, type: 'triangle', f0: 990 }); }, 55);
+        break;
     }
   }
 }

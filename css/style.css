@@ -95,6 +95,12 @@ h2{font-size:34px;font-weight:900;letter-spacing:4px;font-style:italic;margin-bo
 .chl.r{top:-1px;left:var(--gap);width:var(--len);height:var(--thk)}
 .chdot{position:absolute;left:-1px;top:-1px;width:2px;height:2px;background:#fff}
 
+#scope{position:absolute;inset:0;display:none;background:radial-gradient(circle at 50% 50%,transparent 36vmin,rgba(4,6,10,.97) 37vmin)}
+#scope.on{display:block}
+#scope .scL{position:absolute;left:50%;top:50%;background:rgba(0,0,0,.9)}
+#scope .scL.h{width:100%;height:1.5px;transform:translate(-50%,-50%)}
+#scope .scL.v{height:100%;width:1.5px;transform:translate(-50%,-50%)}
+
 #hm{position:absolute;left:50%;top:50%;opacity:0}
 #hm span{position:absolute;width:2px;height:9px;background:#fff;box-shadow:0 0 4px #000}
 #hm span:nth-child(1){transform:translate(-8px,-14px) rotate(-45deg)}

@@ -22,6 +22,7 @@ class Player {
     this.alive = true;
     this.prot = 0;
     this.respawnT = 0;
+    this.quadT = 0;
     this.crouchHeld = false;
     this.crouchAmt = 0;
     this.runHeld = false;
@@ -129,7 +130,12 @@ class Player {
     if (this.jumpBuf > 0) this.jumpBuf -= dt;
     if (this.dashCd > 0) this.dashCd -= dt;
 
-    this.crouchAmt = U.damp(this.crouchAmt, this.crouchHeld ? 1 : 0, 12, dt);
+    let crouchTarget = this.crouchHeld ? 1 : 0;
+    if (crouchTarget === 0 && this.crouchAmt > 0.02) {
+      const probe = { pos: this.body.pos, r: this.body.r, h: 1.95 };
+      if (anyOverlap(probe, this.game.world.colliders)) crouchTarget = 1;
+    }
+    this.crouchAmt = U.damp(this.crouchAmt, crouchTarget, 12, dt);
     this.body.h = U.lerp(1.95, 1.4, this.crouchAmt);
 
     const wish = this._wishDir();
@@ -362,6 +368,7 @@ class Player {
     this.hp = this.maxHp;
     this.alive = true;
     this.prot = 1.5;
+    this.quadT = 0;
     this.grenades = GRENADE.max;
     for (const k of SLOT_ORDER) this.ammo[k] = WEAPONS[k].mag;
     this.reloading = null;

@@ -88,6 +88,7 @@ Game.prototype.combatants = function () {
 
 Game.prototype.hurt = function (ent, amount, src, isHead, wpn) {
   if (!ent || !ent.alive) return false;
+  if (src && src.quadT > 0 && src !== ent) amount *= 2;
   return ent.isPlayer ? ent.hurt(amount, src, isHead, wpn) : ent.takeDamage(amount, src, isHead, wpn);
 };
 
@@ -136,6 +137,17 @@ Game.prototype.pickSpawn = function (self) {
 };
 
 Game.prototype.addShake = function (a) { this.shake = Math.min(this.shake + a, 0.9); };
+
+Game.prototype.resetHeldInputs = function () {
+  this.mouseAds = false;
+  const p = this.player;
+  if (!p) return;
+  p.fireHeld = false;
+  p.fireEdge = false;
+  p.grenadeEdge = false;
+  p.dashEdge = false;
+  p.adsHeld = false;
+};
 
 Game.prototype.spawnRocket = function (pos, dir, owner) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.55), new THREE.MeshLambertMaterial({ color: 0xff8c3a }));
@@ -262,6 +274,7 @@ Game.prototype._groundBelow = function (x, z, y) {
 function wallHitOrTime(t, life) { return t > 0 || life > 6; }
 
 Game.prototype.clearMatchObjects = function () {
+  if (this.pickups) { this.pickups.dispose(); this.pickups = null; }
   for (const b of this.bots) b.dispose();
   this.bots = [];
   for (const r of this.rockets) this.scene.remove(r.mesh);
@@ -285,6 +298,7 @@ Game.prototype.startMatch = function () {
 
   this.player = new Player(this, clsKey);
   this.player.name = playerName;
+  this.pickups = new Pickups(this);
   const names = BOT_NAMES.slice();
   const cols = BOT_COLORS.slice();
   for (let i = names.length - 1; i > 0; i--) { const j = U.randi(0, i); const t = names[i]; names[i] = names[j]; names[j] = t; }
@@ -307,6 +321,7 @@ Game.prototype.startMatch = function () {
 Game.prototype.endMatch = function (winner) {
   this.state = 'end';
   document.exitPointerLock();
+  this.resetHeldInputs();
   this.canvas.style.filter = '';
   this.hud.hideDeath();
   const list = this.combatants().slice().sort((a, b) => b.score.k - a.score.k || a.score.d - b.score.d);
@@ -323,6 +338,7 @@ Game.prototype.endMatch = function (winner) {
 Game.prototype.quitToMenu = function () {
   this.state = 'menu';
   document.exitPointerLock();
+  this.resetHeldInputs();
   this.clearMatchObjects();
   U.el('pause').classList.add('hidden');
   U.el('end').classList.add('hidden');
@@ -374,6 +390,7 @@ Game.prototype.bindUI = function () {
   document.addEventListener('pointerlockchange', () => {
     const locked = document.pointerLockElement === self.canvas;
     if (!locked && self.state === 'playing') {
+      self.resetHeldInputs();
       self.state = 'paused';
       U.el('pause').classList.remove('hidden');
     } else if (locked && self.state === 'paused') {
@@ -408,12 +425,18 @@ Game.prototype.bindInput = function () {
         self.hud.subAnnounce(muted ? 'MUTED' : 'SOUND ON');
       }
       if (e.code === 'KeyE') p.adsHeld = true;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') p.runHeld = true;
+      if (e.code === 'KeyC') p.crouchHeld = true;
     }
   });
   addEventListener('keyup', e => {
     if (e.code === 'Tab') { self.tabHeld = false; return; }
     self.keys.delete(e.code);
-    if (e.code === 'KeyE' && self.player) self.player.adsHeld = self.mouseAds;
+    const p = self.player;
+    if (!p) return;
+    if (e.code === 'KeyE') p.adsHeld = self.mouseAds;
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') p.runHeld = false;
+    if (e.code === 'KeyC') p.crouchHeld = false;
   });
 
   this.mouseAds = false;
@@ -441,8 +464,9 @@ const TIPS = [
   'TIP: DASH WITH Q TO ROCKET-JUMP FURTHER',
   'TIP: HEADSHOTS DEAL BONUS DAMAGE',
   'TIP: HOLD TAB FOR FULL SCOREBOARD',
-  'TIP: COOK YOUR ESCAPE — GRENADES BOUNCE',
-  'TIP: THE CENTER PLATFORM CONTROLS THE MAP'
+  'TIP: COOK YOUR ESCAPE \u2014 GRENADES BOUNCE',
+  'TIP: THE CENTER PLATFORM CONTROLS THE MAP',
+  'TIP: QUAD DAMAGE SPAWNS AT THE CENTER \u2014 CONTEST IT'
 ];
 
 Game.prototype.loop = function () {
@@ -466,6 +490,7 @@ Game.prototype.loop = function () {
     const p = this.player;
     p.update(dt);
     for (const b of this.bots) b.update(dt);
+    this.pickups.update(dt);
     this.updateProjectiles(dt);
     this.effects.update(dt);
     this.shake *= Math.exp(-6 * dt);
@@ -493,6 +518,7 @@ Game.prototype.loop = function () {
 
     const scoped = p.cur === 'sniper' && p.adsAmt > 0.82;
     this.hud.ch.style.opacity = scoped ? 0 : 1;
+    this.hud.scope(scoped);
     const hsp = Math.sqrt(p.body.vel.x ** 2 + p.body.vel.z ** 2);
     const gap = 5 + hsp * 0.7 + (p.body.grounded ? 0 : 7) + p.vmKick * 16 + (def.pellets ? 8 : 0);
     this.hud.crosshair(gap.toFixed(1));

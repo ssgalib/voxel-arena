@@ -11,6 +11,7 @@ class HUD {
     this.grencount = U.el('grencount');
     this.dashfill = U.el('dashfill');
     this.ch = U.el('ch');
+    this.scopeEl = U.el('scope');
     this.hm = U.el('hm');
     this.vig = U.el('vignette');
     this.kfEl = U.el('killfeed');
@@ -79,6 +80,10 @@ class HUD {
 
   crosshair(bloomPx) {
     this.ch.style.setProperty('--gap', bloomPx + 'px');
+  }
+
+  scope(on) {
+    if (this._set('scope', !!on)) this.scopeEl.classList.toggle('on', !!on);
   }
 
   hitmark(kind) {

@@ -51,6 +51,7 @@ class Bot {
     this.alive = true;
     this.prot = 0;
     this.respawnT = 0;
+    this.quadT = 0;
     this.body = { pos: new THREE.Vector3(), r: 0.42, h: 2.05, vel: new THREE.Vector3(), grounded: false };
     this.kb = new THREE.Vector3();
     this.state = 'patrol';
@@ -171,6 +172,7 @@ class Bot {
     this.hp = this.maxHp;
     this.alive = true;
     this.prot = 1.2;
+    this.quadT = 0;
     this.state = 'patrol';
     this.target = null;
     this.goal = null;

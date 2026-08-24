@@ -9,7 +9,8 @@ A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https
 - **FFA deathmatch** against 7 AI bots with patrol / hunt / engage behavior, line-of-sight targeting, strafing, and three difficulty tiers
 - **5 weapons**: assault rifle, shotgun (8 pellets), sniper with scope zoom, rocket launcher with splash damage, pistol
 - **3 classes**: Assault (balanced), Scout (fast + quick dash), Heavy (tanky + blast resistant)
-- **Movement tech**: bunny-hop friendly jumping, dash (Q), rocket jumping, grenade cooking
+- **Movement tech**: bunny-hop friendly jumping, dash (Q), rocket jumping, grenade cooking, sprint & crouch
+- **Pickups**: health packs and grenade restocks around the map; quad damage contested at the center platform
 - **Full FPS toolkit**: ADS, headshot multipliers, reloads, hitmarkers, kill feed, multi-kill announcements
 - **HUD**: dynamic crosshair, radar minimap, live scoreboard (hold Tab), FPS meter, damage vignettes
 - Procedurally built arena — central platform, corner towers, containers, crates, drifting clouds
@@ -32,6 +33,12 @@ A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https
 | Tab | Scoreboard |
 | M | Mute |
 
+## Pickups
+
+- **Health packs** (green cross, 4 spots) restore +40 HP, respawn after 12s
+- **Grenade restock** (amber, 4 spots) refills all 3 grenades, respawns after 15s
+- **Quad damage** (purple octahedron, center platform) doubles your damage for 25s, respawns after 45s
+
 ## Run it
 
 Any static file server works:
@@ -53,6 +60,7 @@ js/player.js        FPS controller: movement, shooting, weapons
 js/bot.js           bot AI, names, nametags
 js/world.js         arena geometry, colliders, nav points, spawns
 js/weapons.js       weapon stats + blocky viewmodels
+js/pickups.js       health / grenade / quad pickups
 js/effects.js       particles, tracers, impacts, explosions
 js/audio.js         WebAudio-synthesized SFX
 js/hud.js           DOM/canvas HUD rendering
