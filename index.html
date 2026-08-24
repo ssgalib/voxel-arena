@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VOXEL ARENA — fast voxel FPS</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="ch"><span class="chl t"></span><span class="chl b"></span><span class="chl l"></span><span class="chl r"></span><span class="chdot"></span></div>
+  <div id="hm"><span></span><span></span><span></span><span></span></div>
+  <div id="vignette"></div>
+  <div id="lowhp"></div>
+  <div id="dmglayer"></div>
+  <div id="killfeed"></div>
+  <div id="announce"></div>
+  <div id="subann"></div>
+  <div id="fpsmeter"></div>
+
+  <div id="hpwrap">
+    <div id="classtag">ASSAULT</div>
+    <div id="hpbar"><div id="hpfill"></div></div>
+    <div id="hptext">100</div>
+  </div>
+
+  <div id="ammowrap">
+    <div id="wname">ASSAULT RIFLE</div>
+    <div id="ammoline"><span id="ammocur">30</span><span id="ammomax">/ &#8734;</span></div>
+    <div id="slotsRow"></div>
+    <div id="utilrow">
+      <div class="utilchip" id="grenchip"><b>G</b><span id="grencount">3</span></div>
+      <div class="utilchip dash" id="dashchip"><b>Q</b><div id="dashring"><div id="dashfill"></div></div></div>
+    </div>
+  </div>
+
+  <div id="boardwrap">
+    <div id="boardgoal"></div>
+    <div id="boardrows"></div>
+    <div id="tabhint">HOLD TAB</div>
+  </div>
+
+  <canvas id="radar" width="150" height="150"></canvas>
+  <div id="protip"></div>
+</div>
+
+<div id="menu">
+  <div class="panel menuPanel">
+    <h1 class="title">VOXEL<span>ARENA</span></h1>
+    <p class="subtitle">fast voxel fps &mdash; fan tribute to poxel.io</p>
+    <input id="nameInput" maxlength="14" placeholder="PLAYER" spellcheck="false">
+
+    <div class="label">CLASS</div>
+    <div id="classRow">
+      <div class="classCard sel" data-class="assault"><h3>Assault</h3><em>100 HP &middot; normal speed</em><i>Balanced fighter</i></div>
+      <div class="classCard" data-class="scout"><h3>Scout</h3><em>75 HP &middot; fast + quick dash</em><i>Speed demon</i></div>
+      <div class="classCard" data-class="heavy"><h3>Heavy</h3><em>150 HP &middot; slow &middot; blast resist</em><i>Tank</i></div>
+    </div>
+
+    <div class="row2">
+      <div>
+        <div class="label">BOTS</div>
+        <div class="segRow" id="diffRow">
+          <button class="seg" data-diff="easy">EASY</button>
+          <button class="seg sel" data-diff="normal">NORMAL</button>
+          <button class="seg" data-diff="hard">HARD</button>
+        </div>
+      </div>
+      <div>
+        <div class="label">KILLS TO WIN</div>
+        <div class="segRow" id="targetRow">
+          <button class="seg" data-target="10">10</button>
+          <button class="seg sel" data-target="20">20</button>
+          <button class="seg" data-target="30">30</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="playBtn">DEPLOY</button>
+
+    <div id="controlsGrid">
+      <span><b>WASD</b> move</span><span><b>SPACE</b> jump</span><span><b>SHIFT</b> run</span>
+      <span><b>C</b> crouch</span><span><b>Q / X</b> dash</span><span><b>LMB</b> fire</span>
+      <span><b>RMB / E</b> aim</span><span><b>R</b> reload</span><span><b>1-5</b> weapons</span>
+      <span><b>G</b> grenade</span><span><b>TAB</b> scores</span><span><b>M</b> mute</span>
+    </div>
+    <p class="foot">Fan-made tribute. Not affiliated with poxel.io. Built with three.js.</p>
+  </div>
+</div>
+
+<div id="pause" class="hidden">
+  <div class="panel">
+    <h2>PAUSED</h2>
+    <button id="resumeBtn" class="big">RESUME</button>
+    <div class="settingRow"><span>MOUSE SENS</span><input type="range" id="sensRange" min="0.2" max="3" step="0.05"><b id="sensVal">1.0</b></div>
+    <div class="settingRow"><span>VOLUME</span><input type="range" id="volRange" min="0" max="1" step="0.05"><b id="volVal">0.7</b></div>
+    <div class="settingRow"><span>PIXELATE</span><input type="checkbox" id="pixChk"><span class="hint">retro low-res render</span></div>
+    <button id="quitBtn" class="ghost">QUIT TO MENU</button>
+  </div>
+</div>
+
+<div id="death" class="hidden">
+  <div class="deathInner">
+    <div class="dTitle">YOU DIED</div>
+    <div class="dBy">fragged by <span id="deathKiller">???</span></div>
+    <div class="dCount" id="deathCount">3</div>
+  </div>
+</div>
+
+<div id="end" class="hidden">
+  <div class="panel">
+    <h2 id="endTitle">VICTORY</h2>
+    <div id="endBoardWrap"></div>
+    <button id="rematchBtn" class="big">REMATCH</button>
+    <button id="endMenuBtn" class="ghost">MAIN MENU</button>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/world.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/bot.js"></script>
+<script src="js/player.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
