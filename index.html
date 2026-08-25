@@ -81,6 +81,7 @@
     </div>
 
     <button id="playBtn">DEPLOY</button>
+    <button id="mpBtn" class="ghost">MULTIPLAYER &mdash; HOST / JOIN</button>
 
     <div id="controlsGrid">
       <span><b>WASD</b> move</span><span><b>SPACE</b> jump</span><span><b>SHIFT</b> run</span>
@@ -89,6 +90,35 @@
       <span><b>G</b> grenade</span><span><b>TAB</b> scores</span><span><b>M</b> mute</span>
     </div>
     <p class="foot">Fan-made tribute. Not affiliated with poxel.io. Built with three.js.</p>
+  </div>
+</div>
+
+<div id="mp" class="hidden">
+  <div class="panel menuPanel">
+    <h2 class="mpTitle">MULTIPLAYER</h2>
+
+    <div id="mpEntry">
+      <div class="label">HOST A MATCH</div>
+      <button id="hostBtn" class="seg mpWide">CREATE PRIVATE MATCH</button>
+      <div class="label">OR JOIN WITH A CODE</div>
+      <div class="joinRow">
+        <input id="joinCode" maxlength="8" placeholder="CODE" spellcheck="false" autocomplete="off">
+        <button id="joinBtn" class="seg">JOIN</button>
+      </div>
+      <p class="hint">Peer-to-peer over WebRTC &mdash; no server needed. Share the code with friends; the host simulates bots and scoring. Up to 7 players.</p>
+    </div>
+
+    <div id="mpLobby" class="hidden">
+      <div class="label">MATCH CODE &mdash; SHARE WITH FRIENDS</div>
+      <div class="codeRow"><span id="mpCodeBox"></span><button id="copyCodeBtn" class="seg">COPY</button></div>
+      <div class="label">PLAYERS (<span id="mpCount">1</span>/8)</div>
+      <div id="mpRoster"></div>
+      <button id="mpStartBtn" class="big">START MATCH</button>
+      <div id="mpWaitTxt" class="waitTxt hidden"></div>
+    </div>
+
+    <div id="mpStatus"></div>
+    <button id="mpBackBtn" class="ghost">BACK TO MENU</button>
   </div>
 </div>
 
@@ -114,8 +144,9 @@
 <div id="end" class="hidden">
   <div class="panel">
     <h2 id="endTitle">VICTORY</h2>
-    <div id="endBoardWrap"></div>
-    <button id="rematchBtn" class="big">REMATCH</button>
+  <div id="endBoardWrap"></div>
+  <div id="endWait" class="waitTxt hidden">WAITING FOR HOST TO REMATCH...</div>
+  <button id="rematchBtn" class="big">REMATCH</button>
     <button id="endMenuBtn" class="ghost">MAIN MENU</button>
   </div>
 </div>
@@ -127,9 +158,16 @@
 <script src="js/effects.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/pickups.js"></script>
+<script src="js/avatar.js"></script>
 <script src="js/bot.js"></script>
+<script src="js/netplayer.js"></script>
+<script src="js/net.js"></script>
 <script src="js/player.js"></script>
 <script src="js/hud.js"></script>
 <script src="js/main.js"></script>
+<script type="module">
+  window.loadTrystero = () =>
+    import('./vendor/trystero.js').catch(() => import('https://esm.sh/trystero@0.25.3'));
+</script>
 </body>
 </html>

@@ -6,6 +6,7 @@ const PICKUP_DEFS = {
 
 function Pickups(game) {
   this.game = game;
+  this.auth = game.netRole !== 'client';
   this.items = [];
   this.t = 0;
   const spots = [
@@ -20,6 +21,7 @@ function Pickups(game) {
     ['nades', -27, 0.6, -27]
   ];
   for (const s of spots) this.items.push(this._make(s[0], s[1], s[2], s[3]));
+  for (let i = 0; i < this.items.length; i++) this.items[i].idx = i;
 }
 
 Pickups.prototype._make = function (kind, x, y, z) {
@@ -64,6 +66,7 @@ Pickups.prototype.update = function (dt) {
       }
     }
   }
+  if (!this.auth) return;
   for (const it of this.items) {
     if (!it.active) {
       it.cd -= dt;
@@ -80,15 +83,44 @@ Pickups.prototype.update = function (dt) {
       const gy = it.grp.position.y;
       if (p.y > gy + 1.2 || p.y + 1.95 < gy - 0.4) continue;
       if (!this._apply(it, e)) continue;
-      it.active = false;
-      it.cd = it.def.respawn;
-      it.grp.visible = false;
-      const fx = new THREE.Vector3(it.x, gy, it.z);
-      this.game.effects.burst(fx, { n: 14, color: it.def.color, speed: 5, size: 0.15, life: 0.5 });
-      this.game.sfx.play('pickup', fx, 0.9);
+      this._consume(it, e);
       break;
     }
   }
+};
+
+Pickups.prototype.animate = function (dt) {
+  this.t += dt;
+  for (const it of this.items) {
+    if (!it.active) {
+      it.cd -= dt;
+      if (it.cd <= 0) { it.active = true; it.grp.visible = true; }
+      continue;
+    }
+    it.grp.rotation.y += dt * 1.7;
+    it.grp.position.y = it.baseY + Math.sin(this.t * 2.2 + it.grp.userData.phase) * 0.12;
+  }
+};
+
+Pickups.prototype._consume = function (it, e) {
+  it.active = false;
+  it.cd = it.def.respawn;
+  it.grp.visible = false;
+  const fx = new THREE.Vector3(it.x, it.grp.position.y, it.z);
+  this.game.effects.burst(fx, { n: 14, color: it.def.color, speed: 5, size: 0.15, life: 0.5 });
+  this.game.sfx.play('pickup', fx, 0.9);
+  if (this.auth && this.game.isNetHost) {
+    this.game.netSend('pick', { i: it.idx, t: e && e.id !== undefined ? e.id : -1 });
+  }
+};
+
+Pickups.prototype.takeRemote = function (idx, targetId) {
+  const it = this.items[idx];
+  if (!it || !it.active) return;
+  let target = null;
+  if (targetId >= 0 && this.game.player && this.game.player.id === targetId) target = this.game.player;
+  if (target && target.alive) this._apply(it, target);
+  this._consume(it, null);
 };
 
 Pickups.prototype._apply = function (it, e) {

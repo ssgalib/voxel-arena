@@ -105,10 +105,19 @@ class HUD {
     }
   }
 
+  _esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  _col(c) {
+    const s = String(c);
+    return /^#[0-9a-fA-F]{3,8}$/.test(s) ? s : '#ffffff';
+  }
+
   killFeed(kName, kCol, vName, vCol, wpn, head) {
     const d = document.createElement('div');
     d.className = 'kf';
-    d.innerHTML = '<b style="color:' + kCol + '">' + kName + '</b><i>[' + wpn.toUpperCase() + (head ? ' \u2022 HS' : '') + ']</i><b style="color:' + vCol + '">' + vName + '</b>';
+    d.innerHTML = '<b style="color:' + this._col(kCol) + '">' + this._esc(kName) + '</b><i>[' + this._esc(wpn.toUpperCase()) + (head ? ' \u2022 HS' : '') + ']</i><b style="color:' + this._col(vCol) + '">' + this._esc(vName) + '</b>';
     this.kfEl.prepend(d);
     while (this.kfEl.children.length > 6) this.kfEl.lastChild.remove();
     setTimeout(() => { d.style.transition = 'opacity .4s'; d.style.opacity = 0; }, 3800);
@@ -137,7 +146,7 @@ class HUD {
     let html = '';
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
-      html += '<div class="brow' + (e.me ? ' me' : '') + '"><span class="bk">' + (i + 1) + '</span><span class="bn" style="color:' + e.col + '">' + e.name + '</span><span class="bs">' + e.k + '</span><span class="bd">' + e.d + '</span></div>';
+      html += '<div class="brow' + (e.me ? ' me' : '') + '"><span class="bk">' + (i + 1) + '</span><span class="bn" style="color:' + e.col + '">' + this._esc(e.name) + '</span><span class="bs">' + (e.k | 0) + '</span><span class="bd">' + (e.d | 0) + '</span></div>';
     }
     if (this._set('board', html)) this.boardrows.innerHTML = html;
     this.boardwrap.classList.toggle('exp', !!expanded);
@@ -203,7 +212,7 @@ class HUD {
     U.el('endTitle').style.color = win ? 'var(--acc)' : '#ff6b6b';
     let html = '';
     rows.forEach((r, i) => {
-      html += '<div class="endRow' + (r.me ? ' me' : '') + '"><span class="rk">#' + (i + 1) + '</span><span class="nm" style="color:' + r.col + '">' + r.name + '</span><span class="kd">' + r.k + ' / ' + r.d + '</span></div>';
+      html += '<div class="endRow' + (r.me ? ' me' : '') + '"><span class="rk">#' + (i + 1) + '</span><span class="nm" style="color:' + r.col + '">' + this._esc(r.name) + '</span><span class="kd">' + (r.k | 0) + ' / ' + (r.d | 0) + '</span></div>';
     });
     U.el('endBoardWrap').innerHTML = html;
   }

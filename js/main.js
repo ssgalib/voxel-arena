@@ -26,6 +26,17 @@ function Game() {
   this.tipT = 0;
   this.streakTimes = [];
   this.clock = new THREE.Clock();
+  this.net = null;
+  this.netRole = 'off';
+  this.roster = [];
+  this.remote = [];
+  this.entMeta = {};
+  this.botMeta = [];
+  this.myId = 0;
+  this.nextEntId = 1;
+  this.snapT = 0;
+  this.inputT = 0;
+  this.projSeq = 0;
 
   this.initGL();
   this.sfx = new Sfx();
@@ -43,6 +54,35 @@ function Game() {
   this.loop = this.loop.bind(this);
   requestAnimationFrame(this.loop);
 }
+
+Object.defineProperty(Game.prototype, 'isNetHost', {
+  get() { return this.netRole === 'host'; }
+});
+
+Game.prototype.netSend = function (action, data, toPid) {
+  if (this.net) this.net.send(action, data, toPid);
+};
+
+Game.prototype.entityById = function (id) {
+  if (this.player && this.player.id === id) return this.player;
+  for (const r of this.remote) if (r.id === id) return r;
+  for (const b of this.bots) if (b.id === id) return b;
+  return null;
+};
+
+Game.prototype.clientClaimHit = function (ent, dmg, isHead, wpn, end) {
+  const now = performance.now();
+  if (now - (this._lastClaimSfx || 0) > 90) {
+    this._lastClaimSfx = now;
+    this.hud.hitmark(isHead ? 'crit' : '');
+    this.sfx.play('hit');
+  }
+  if (ent && ent.id !== undefined) {
+    this.netSend('shot', { sid: this.myId, w: wpn, h: ent.id, hs: isHead ? 1 : 0, d: dmg, e: [rnd2(end.x), rnd2(end.y), rnd2(end.z)] });
+  }
+};
+
+function rnd2(v) { return Math.round(v * 100) / 100; }
 
 Game.prototype.initGL = function () {
   const canvas = U.el('c');
@@ -82,7 +122,10 @@ Game.prototype.losClear = function (a, b) {
 Game.prototype.combatants = function () {
   const arr = [];
   if (this.player) arr.push(this.player);
-  for (const b of this.bots) arr.push(b);
+  for (const r of this.remote) arr.push(r);
+  if (this.netRole !== 'client') {
+    for (const b of this.bots) arr.push(b);
+  }
   return arr;
 };
 
@@ -100,6 +143,9 @@ Game.prototype.registerKill = function (src, victim, isHead, wpn) {
   const sCol = src && src.cls ? src.cls.color : '#' + ((src && src.colorHex) || 0xffffff).toString(16).padStart(6, '0');
   const vCol = victim.cls ? victim.cls.color : '#' + victim.colorHex.toString(16).padStart(6, '0');
   this.hud.killFeed(sName, sCol, victim.name, vCol, WPN_LABEL[wpn] || wpn, isHead);
+  if (this.isNetHost) {
+    this.netSend('feed', { kn: sName, kc: sCol, vn: victim.name, vc: vCol, w: wpn, h: isHead ? 1 : 0 });
+  }
 
   if (src && src.isPlayer && victim !== src) {
     const now = performance.now() / 1000;
@@ -153,7 +199,19 @@ Game.prototype.spawnRocket = function (pos, dir, owner) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.55), new THREE.MeshLambertMaterial({ color: 0xff8c3a }));
   m.position.copy(pos);
   this.scene.add(m);
-  this.rockets.push({ mesh: m, pos: pos.clone(), vel: dir.clone().multiplyScalar(WEAPONS.rpg.speed), owner: owner, t: 0 });
+  const r = { mesh: m, pos: pos.clone(), vel: dir.clone().multiplyScalar(WEAPONS.rpg.speed), owner: owner, t: 0 };
+  this.rockets.push(r);
+  if (this.netRole !== 'off' && owner && owner.isPlayer) {
+    r.pid = ++this.projSeq;
+    this.netSend('proj', { k: 'r', pid: r.pid, p: [rnd2(pos.x), rnd2(pos.y), rnd2(pos.z)], v: [rnd2(r.vel.x), rnd2(r.vel.y), rnd2(r.vel.z)] });
+  }
+};
+
+Game.prototype.addRemoteRocket = function (m) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.55), new THREE.MeshLambertMaterial({ color: 0xff8c3a }));
+  mesh.position.set(m.p[0], m.p[1], m.p[2]);
+  this.scene.add(mesh);
+  this.rockets.push({ mesh: mesh, pos: new THREE.Vector3(m.p[0], m.p[1], m.p[2]), vel: new THREE.Vector3(m.v[0], m.v[1], m.v[2]), owner: null, t: 0, visual: true, oid: m.o, pid: m.pid });
 };
 
 Game.prototype.spawnGrenade = function (pos, vel, owner) {
@@ -161,15 +219,31 @@ Game.prototype.spawnGrenade = function (pos, vel, owner) {
   m.position.copy(pos);
   m.castShadow = true;
   this.scene.add(m);
-  this.grenades.push({ mesh: m, pos: pos.clone(), vel: vel.clone(), owner: owner, fuse: GRENADE.fuse });
+  const gr = { mesh: m, pos: pos.clone(), vel: vel.clone(), owner: owner, fuse: GRENADE.fuse };
+  this.grenades.push(gr);
+  if (this.netRole !== 'off' && owner && owner.isPlayer) {
+    gr.pid = ++this.projSeq;
+    this.netSend('proj', { k: 'g', pid: gr.pid, p: [rnd2(pos.x), rnd2(pos.y), rnd2(pos.z)], v: [rnd2(vel.x), rnd2(vel.y), rnd2(vel.z)] });
+  }
 };
 
-Game.prototype._explode = function (pos, radius, dmgMax, owner, wpn) {
+Game.prototype.addRemoteGrenade = function (m) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshLambertMaterial({ color: 0x3d5c34 }));
+  mesh.position.set(m.p[0], m.p[1], m.p[2]);
+  mesh.castShadow = true;
+  this.scene.add(mesh);
+  this.grenades.push({ mesh: mesh, pos: new THREE.Vector3(m.p[0], m.p[1], m.p[2]), vel: new THREE.Vector3(m.v[0], m.v[1], m.v[2]), owner: null, fuse: GRENADE.fuse, visual: true, oid: m.o, pid: m.pid });
+};
+
+Game.prototype._explodeVisual = function (pos, radius) {
   this.effects.explosion(pos, radius);
   this.sfx.play('explosion', pos);
   const cp = this.camera.position;
   const camD = Math.sqrt((cp.x - pos.x) ** 2 + (cp.y - pos.y) ** 2 + (cp.z - pos.z) ** 2);
   this.addShake(U.clamp(1.4 - camD * 0.04, 0, 0.8));
+};
+
+Game.prototype._explodeDamage = function (pos, radius, dmgMax, owner, wpn) {
   const tmpC = new THREE.Vector3();
   for (const e of this.combatants()) {
     if (!e.alive) continue;
@@ -182,6 +256,9 @@ Game.prototype._explode = function (pos, radius, dmgMax, owner, wpn) {
     let dmg = dmgMax * falloff;
     if (e === owner) dmg *= 0.55;
     const kbDir = tmpC.clone().sub(pos).normalize();
+    if (!e.isPlayer && e.peerId && this.netRole !== 'off' && e.alive) {
+      this.netSend('kb', { x: rnd2(kbDir.x * 11 * falloff), z: rnd2(kbDir.z * 11 * falloff), y: rnd2(6.5 * falloff + 2) }, e.peerId);
+    }
     if (e.isPlayer) {
       e.body.vel.addScaledVector(kbDir, 10 * falloff);
       e.body.vel.y = Math.max(e.body.vel.y, 6.5 * falloff + 2);
@@ -189,6 +266,39 @@ Game.prototype._explode = function (pos, radius, dmgMax, owner, wpn) {
       e.kb.addScaledVector(kbDir, 11 * falloff);
     }
     this.hurt(e, Math.round(dmg), owner, false, wpn);
+  }
+};
+
+Game.prototype.detonate = function (kind, pos, owner) {
+  const isGrenade = kind === 'g';
+  const radius = isGrenade ? GRENADE.radius : WEAPONS.rpg.radius;
+  const dmgMax = isGrenade ? GRENADE.dmg : WEAPONS.rpg.dmg;
+  this._explodeVisual(pos, radius);
+  if (this.isNetHost) {
+    this._explodeDamage(pos, radius, dmgMax, owner, isGrenade ? 'grenade' : 'rocket');
+    this.netSend('boom', { k: kind, p: [rnd2(pos.x), rnd2(pos.y), rnd2(pos.z)], o: owner && owner.id !== undefined ? owner.id : 0 });
+  } else {
+    this.netSend('boom', { k: kind, p: [rnd2(pos.x), rnd2(pos.y), rnd2(pos.z)], o: this.myId });
+  }
+};
+
+Game.prototype.receiveBoom = function (m) {
+  const pos = new THREE.Vector3(m.p[0], m.p[1], m.p[2]);
+  const isGrenade = m.k === 'g';
+  this.dropVisualProj(m.pid);
+  this._explodeVisual(pos, isGrenade ? GRENADE.radius : WEAPONS.rpg.radius);
+  if (this.isNetHost) {
+    this._explodeDamage(pos, isGrenade ? GRENADE.radius : WEAPONS.rpg.radius, isGrenade ? GRENADE.dmg : WEAPONS.rpg.dmg, this.entityById(m.o), isGrenade ? 'grenade' : 'rocket');
+  }
+};
+
+Game.prototype.dropVisualProj = function (pid) {
+  if (pid === undefined) return;
+  for (let i = this.rockets.length - 1; i >= 0; i--) {
+    if (this.rockets[i].pid === pid) { this.scene.remove(this.rockets[i].mesh); this.rockets.splice(i, 1); }
+  }
+  for (let i = this.grenades.length - 1; i >= 0; i--) {
+    if (this.grenades[i].pid === pid) { this.scene.remove(this.grenades[i].mesh); this.grenades.splice(i, 1); }
   }
 };
 
@@ -208,7 +318,7 @@ Game.prototype.updateProjectiles = function (dt) {
       const wall = this.raycastWorld(tmpA, tmpB, len);
       if (wall) hitT = wall.t;
       for (const e of this.combatants()) {
-        if (e === r.owner || !e.alive) continue;
+        if (e === r.owner || !e.alive || (r.oid !== undefined && e.id === r.oid)) continue;
         const t = segBox(tmpA.x, tmpA.y, tmpA.z, tmpB.x, tmpB.y, tmpB.z, len, e.getAABB());
         if (t !== false && (hitT === 0 || t < hitT)) { hitT = t; hitEnt = e; }
       }
@@ -219,7 +329,11 @@ Game.prototype.updateProjectiles = function (dt) {
       if (hitEnt) boomAt.y += 0.8;
       this.scene.remove(r.mesh);
       this.rockets.splice(i, 1);
-      this._explode(boomAt, WEAPONS.rpg.radius, WEAPONS.rpg.dmg, r.owner, 'rocket');
+      if (r.visual) {
+        this.effects.burst(boomAt, { n: 6, color: 0xff8c3a, speed: 4, size: 0.12, life: 0.3 });
+      } else {
+        this.detonate('r', boomAt, r.owner);
+      }
       continue;
     }
     r.mesh.position.copy(r.pos);
@@ -251,7 +365,11 @@ Game.prototype.updateProjectiles = function (dt) {
     if (gr.fuse <= 0) {
       this.scene.remove(gr.mesh);
       this.grenades.splice(i, 1);
-      this._explode(gr.pos.clone(), GRENADE.radius, GRENADE.dmg, gr.owner, 'grenade');
+      if (gr.visual) {
+        this.effects.burst(gr.pos.clone(), { n: 6, color: 0x3d5c34, speed: 4, size: 0.12, life: 0.3 });
+      } else {
+        this.detonate('g', gr.pos.clone(), gr.owner);
+      }
     }
   }
 };
@@ -277,6 +395,10 @@ Game.prototype.clearMatchObjects = function () {
   if (this.pickups) { this.pickups.dispose(); this.pickups = null; }
   for (const b of this.bots) b.dispose();
   this.bots = [];
+  for (const r of this.remote) r.dispose();
+  this.remote = [];
+  this.entMeta = {};
+  this.botMeta = [];
   for (const r of this.rockets) this.scene.remove(r.mesh);
   this.rockets = [];
   for (const g of this.grenades) this.scene.remove(g.mesh);
@@ -289,33 +411,450 @@ Game.prototype.clearMatchObjects = function () {
   this.hud.hideDeath();
 };
 
-Game.prototype.startMatch = function () {
-  this.clearMatchObjects();
-  const clsKey = document.querySelector('.classCard.sel').dataset.class;
-  this.cfg.limit = parseInt(document.querySelector('#targetRow .seg.sel').dataset.target);
-  this.cfg.diff = document.querySelector('#diffRow .seg.sel').dataset.diff;
-  const playerName = (U.el('nameInput').value.trim() || 'YOU').toUpperCase().slice(0, 14);
+Game.prototype._readMenuCfg = function () {
+  return {
+    clsKey: document.querySelector('.classCard.sel').dataset.class,
+    limit: parseInt(document.querySelector('#targetRow .seg.sel').dataset.target),
+    diff: document.querySelector('#diffRow .seg.sel').dataset.diff,
+    name: (U.el('nameInput').value.trim() || 'YOU').toUpperCase().slice(0, 14)
+  };
+};
 
-  this.player = new Player(this, clsKey);
-  this.player.name = playerName;
-  this.pickups = new Pickups(this);
-  const names = BOT_NAMES.slice();
-  const cols = BOT_COLORS.slice();
-  for (let i = names.length - 1; i > 0; i--) { const j = U.randi(0, i); const t = names[i]; names[i] = names[j]; names[j] = t; }
-  for (let i = cols.length - 1; i > 0; i--) { const j = U.randi(0, i); const t = cols[i]; cols[i] = cols[j]; cols[j] = t; }
-  for (let i = 0; i < 7; i++) this.bots.push(new Bot(this, names[i], cols[i], this.cfg.diff));
-
+Game.prototype._commonStart = function () {
   U.el('menu').classList.add('hidden');
+  U.el('mp').classList.add('hidden');
   U.el('end').classList.add('hidden');
   U.el('hud').classList.remove('hidden');
   this.state = 'playing';
   this.streakTimes = [];
   this.tipT = 4;
   this.tipI = 0;
+  this.snapT = 0;
+  this.inputT = 0;
+  this.lastKillerName = null;
   this.hud.reset(this.player.cls.label);
   this.hud.announce('FIGHT', 'FIRST TO ' + this.cfg.limit + ' FRAGS');
   const pl = this.canvas.requestPointerLock();
   if (pl && pl.catch) pl.catch(() => {});
+};
+
+Game.prototype.startMatch = function () {
+  this.clearMatchObjects();
+  const sel = this._readMenuCfg();
+  this.cfg.limit = sel.limit;
+  this.cfg.diff = sel.diff;
+  this.netRole = 'off';
+  this.player = new Player(this, sel.clsKey);
+  this.player.name = sel.name;
+  this.player.id = 0;
+  this.nextEntId = 1;
+  this.pickups = new Pickups(this);
+  const names = BOT_NAMES.slice();
+  const cols = BOT_COLORS.slice();
+  for (let i = names.length - 1; i > 0; i--) { const j = U.randi(0, i); const t = names[i]; names[i] = names[j]; names[j] = t; }
+  for (let i = cols.length - 1; i > 0; i--) { const j = U.randi(0, i); const t = cols[i]; cols[i] = cols[j]; cols[j] = t; }
+  for (let i = 0; i < 7; i++) {
+    const b = new Bot(this, names[i], cols[i], this.cfg.diff);
+    b.id = ++this.nextEntId;
+    this.bots.push(b);
+  }
+  this._commonStart();
+};
+
+Game.prototype.beginMatchHost = function () {
+  if (!this.net || this.netRole !== 'host') return;
+  this.clearMatchObjects();
+  const sel = this._readMenuCfg();
+  this.cfg.limit = sel.limit;
+  this.cfg.diff = sel.diff;
+  this.player = new Player(this, sel.clsKey);
+  this.player.name = sel.name;
+  this.player.id = 0;
+  this.entMeta[0] = { name: this.player.name, hex: this.player.cls.hex };
+  for (const r of this.roster) {
+    if (r.pid === this.net.selfId) continue;
+    const np = new NetPlayer(this, r.id, r.name, r.cls, r.pid);
+    this.remote.push(np);
+    this.entMeta[r.id] = { name: r.name, hex: np.colorHex };
+  }
+  let maxId = 0;
+  for (const r of this.roster) maxId = Math.max(maxId, r.id);
+  const names = BOT_NAMES.slice();
+  const cols = BOT_COLORS.slice();
+  for (let i = names.length - 1; i > 0; i--) { const j = U.randi(0, i); const t = names[i]; names[i] = names[j]; names[j] = t; }
+  for (let i = cols.length - 1; i > 0; i--) { const j = U.randi(0, i); const t = cols[i]; cols[i] = cols[j]; cols[j] = t; }
+  const nBots = Math.max(0, Math.min(7, 8 - this.roster.length));
+  this.botMeta = [];
+  for (let i = 0; i < nBots; i++) {
+    const bid = ++maxId;
+    this.botMeta.push({ id: bid, name: names[i], hex: cols[i] });
+    const b = new Bot(this, names[i], cols[i], this.cfg.diff);
+    b.id = bid;
+    this.bots.push(b);
+    this.entMeta[bid] = { name: names[i], hex: cols[i] };
+  }
+  this.pickups = new Pickups(this);
+  this.netSend('start', { limit: this.cfg.limit, diff: this.cfg.diff, roster: this._rosterMsg(), bots: this.botMeta });
+  this._commonStart();
+};
+
+Game.prototype.beginMatchClient = function (pl) {
+  this.clearMatchObjects();
+  this.cfg.limit = pl.limit;
+  this.cfg.diff = pl.diff;
+  const me = this.roster.find(r => r.pid === this.net.selfId);
+  this.botMeta = pl.bots || [];
+  this.player = new Player(this, me ? me.cls : 'assault');
+  this.player.name = me ? me.name : 'YOU';
+  this.player.id = this.myId;
+  this.entMeta[this.myId] = { name: this.player.name, hex: this.player.cls.hex };
+  for (const r of this.roster) {
+    if (r.pid === this.net.selfId) continue;
+    const clsDef = CLASS_DEFS[r.cls];
+    this.entMeta[r.id] = { name: r.name, hex: clsDef ? clsDef.hex : 0xffffff };
+  }
+  for (const bm of this.botMeta) this.entMeta[bm.id] = { name: bm.name, hex: bm.hex };
+  this.pickups = new Pickups(this);
+  this.lastOwnHp = this.player.hp;
+  this._commonStart();
+};
+
+Game.prototype._rosterMsg = function () {
+  return this.roster.map(r => [r.pid, r.id, r.name, r.cls]);
+};
+
+Game.prototype.ensureRemote = function (id) {
+  for (const r of this.remote) if (r.id === id) return r;
+  const meta = this.entMeta[id];
+  const g = new Ghost(this, id, meta ? meta.name : '???', meta ? meta.hex : 0xffffff);
+  this.remote.push(g);
+  return g;
+};
+
+Game.prototype.sendSnap = function () {
+  const enc = e => [
+    e.id !== undefined ? e.id : -1,
+    rnd2(e.body.pos.x), rnd2(e.body.pos.y), rnd2(e.body.pos.z),
+    e.mesh ? Math.round(e.mesh.rotation.y * 100) / 100 : 0,
+    Math.round(e.hp), e.score.k | 0, e.score.d | 0,
+    e.alive ? 1 : 0,
+    Math.round(Math.max(0, e.alive ? 0 : (e.respawnT || 0)) * 10)
+  ];
+  const ps = [];
+  if (this.player) ps.push(enc(this.player));
+  for (const r of this.remote) ps.push(enc(r));
+  const bs = [];
+  for (const b of this.bots) bs.push(enc(b));
+  this.netSend('snap', { p: ps, b: bs });
+};
+
+Game.prototype.applySnap = function (s) {
+  if (!this.player || (this.state !== 'playing' && this.state !== 'paused')) return;
+  for (const e of s.p) this._applyEntState(e);
+  for (const e of s.b) this._applyEntState(e);
+};
+
+Game.prototype._applyEntState = function (e) {
+  const id = e[0];
+  if (id === this.myId) {
+    this.applySelfState(e);
+    return;
+  }
+  let g = null;
+  for (const r of this.remote) if (r.id === id) { g = r; break; }
+  if (!g) g = this.ensureRemote(id);
+  g.applyState({ x: e[1], y: e[2], z: e[3], yaw: e[4], hp: e[5], k: e[6], d: e[7], a: e[8], rt: e[9] / 10 });
+};
+
+Game.prototype.applySelfState = function (e) {
+  const p = this.player;
+  if (!p) return;
+  const hp = e[5];
+  const alive = !!e[8];
+  p.respawnT = e[9] / 10;
+  if (p.alive && hp < p.hp && alive) {
+    this.hud.setDmgFlash();
+    this.addShake(0.12);
+    this.sfx.play('hurt');
+  }
+  p.hp = hp;
+  p.score.k = e[6];
+  p.score.d = e[7];
+  if (!alive && p.alive) {
+    p.alive = false;
+    p.fireHeld = false; p.adsHeld = false;
+    this.canvas.style.filter = 'grayscale(0.85) brightness(0.8)';
+    this.hud.showDeath(this.lastKillerName || '???');
+    this.resetHeldInputs();
+  } else if (alive && !p.alive) {
+    p.respawn({ x: e[1], y: Math.max(e[2], 0), z: e[3] });
+    this.canvas.style.filter = '';
+    this.hud.hideDeath();
+    this.sfx.play('spawn');
+  }
+};
+
+Game.prototype.sendInput = function () {
+  const p = this.player;
+  if (!p || !p.alive) return;
+  this.netSend('input', {
+    x: rnd2(p.body.pos.x), y: rnd2(p.body.pos.y), z: rnd2(p.body.pos.z),
+    vx: rnd2(p.body.vel.x), vy: rnd2(p.body.vel.y), vz: rnd2(p.body.vel.z),
+    yaw: Math.round(p.yaw * 1000) / 1000,
+    cr: p.crouchAmt > 0.5 ? 1 : 0
+  });
+};
+
+Game.prototype.mpHost = async function () {
+  if (this.net) return;
+  const sel = this._readMenuCfg();
+  this._mpStatus('CREATING MATCH...', '');
+  const code = makeRoomCode(5);
+  const net = new Net();
+  try {
+    await net.connect('host', code);
+  } catch (e) {
+    this._mpStatus(String(e && e.message || e), 'err');
+    return;
+  }
+  this.net = net;
+  this.netRole = 'host';
+  this.roomCode = code;
+  this.hostNextId = 1;
+  this.roster = [{ pid: net.selfId, id: 0, name: sel.name, cls: sel.clsKey }];
+  this.setupNetHandlers();
+  this._showLobby(true);
+  this.updateLobbyUI();
+  this.sfx.play('ui');
+};
+
+Game.prototype.mpJoin = async function () {
+  if (this.net) return;
+  const code = cleanRoomCode(U.el('joinCode').value);
+  if (code.length < 4) { this._mpStatus('ENTER A MATCH CODE FIRST', 'err'); return; }
+  const sel = this._readMenuCfg();
+  this._mpStatus('JOINING ' + code + ' ...', '');
+  const net = new Net();
+  try {
+    await net.connect('client', code);
+  } catch (e) {
+    this._mpStatus(String(e && e.message || e), 'err');
+    return;
+  }
+  this.net = net;
+  this.netRole = 'client';
+  this.roomCode = code;
+  this.setupNetHandlers();
+  net.send('hello', { n: sel.name, c: sel.clsKey });
+  this.joinTimeout = setTimeout(() => {
+    if (this.state === 'menu' && !this.roster.length) {
+      this._mpStatus('NO MATCH FOUND FOR CODE ' + code, 'err');
+      this._teardownNet();
+    }
+  }, 15000);
+};
+
+Game.prototype._teardownNet = function () {
+  if (this.net) { this.net.leave(); this.net = null; }
+  this.netRole = 'off';
+  this.roster = [];
+  this.roomCode = null;
+  this.hostPid = null;
+  this.helloAcked = false;
+};
+
+Game.prototype._showLobby = function (isHost) {
+  U.el('menu').classList.add('hidden');
+  U.el('mp').classList.remove('hidden');
+  U.el('mpEntry').classList.add('hidden');
+  U.el('mpLobby').classList.remove('hidden');
+  U.el('mpStartBtn').classList.toggle('hidden', !isHost);
+  U.el('mpWaitTxt').classList.toggle('hidden', !!isHost);
+  U.el('mpWaitTxt').textContent = isHost ? '' : 'WAITING FOR HOST TO START...';
+};
+
+Game.prototype._mpStatus = function (txt, kind) {
+  const el = U.el('mpStatus');
+  el.textContent = txt || '';
+  el.classList.toggle('err', kind === 'err');
+};
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+Game.prototype.updateLobbyUI = function () {
+  let html = '';
+  const sorted = this.roster.slice().sort((a, b) => a.id - b.id);
+  for (const r of sorted) {
+    const cd = CLASS_DEFS[r.cls];
+    const me = this.net && r.pid === this.net.selfId;
+    html += '<div class="lobbyRow"><b style="color:' + (cd ? cd.color : '#fff') + '">' + escHtml(r.name) + '</b><i>' + (cd ? cd.label : '') + '</i>' + (me ? '<em>YOU</em>' : '') + '</div>';
+  }
+  U.el('mpRoster').innerHTML = html;
+  U.el('mpCount').textContent = this.roster.length;
+  U.el('mpCodeBox').textContent = this.roomCode || '';
+};
+
+Game.prototype.leaveLobby = function () {
+  clearTimeout(this.joinTimeout);
+  this._teardownNet();
+  U.el('mpLobby').classList.add('hidden');
+  U.el('mpEntry').classList.remove('hidden');
+  this._mpStatus('', '');
+  U.el('mp').classList.add('hidden');
+  U.el('menu').classList.remove('hidden');
+  this.sfx.play('ui');
+};
+
+Game.prototype.setupNetHandlers = function () {
+  const net = this.net;
+
+  net.on('_join', pid => {
+    if (this.netRole === 'client' && this.state === 'menu' && !this.helloAcked) {
+      const sel = this._readMenuCfg();
+      this.net.send('hello', { n: sel.name, c: sel.clsKey }, pid);
+    }
+  });
+
+  net.on('_leave', pid => {
+    if (this.netRole === 'host') {
+      const row = this.roster.find(r => r.pid === pid);
+      this.roster = this.roster.filter(r => r.pid !== pid);
+      const np = this.remote.find(r => r.peerId === pid);
+      if (np) {
+        this.remote = this.remote.filter(r => r !== np);
+        np.dispose();
+        if (this.state === 'playing') this.hud.subAnnounce(np.name + ' LEFT');
+      }
+      this.netSend('roster', this._rosterMsg());
+      this.updateLobbyUI();
+    } else if (this.netRole === 'client' && pid === this.hostPid) {
+      if (this.state === 'playing' || this.state === 'paused') {
+        this.quitToMenu();
+        this.hud.subAnnounce('HOST LEFT \u2014 MATCH ENDED');
+      } else {
+        this._mpStatus('HOST DISCONNECTED', 'err');
+        this.leaveLobby();
+      }
+    }
+  });
+
+  net.on('hello', (h, pid) => {
+    if (this.netRole !== 'host') return;
+    if (this.state !== 'menu') { net.send('deny', { r: 'MATCH ALREADY RUNNING' }, pid); return; }
+    if (this.roster.length >= 8) { net.send('deny', { r: 'LOBBY FULL' }, pid); return; }
+    let row = this.roster.find(r => r.pid === pid);
+    if (!row) {
+      row = { pid: pid, id: this.hostNextId++, name: ('' + (h.n || 'PLAYER')).toUpperCase().slice(0, 14), cls: CLASS_DEFS[h.c] ? h.c : 'assault' };
+      this.roster.push(row);
+    } else {
+      row.name = ('' + (h.n || row.name)).toUpperCase().slice(0, 14);
+      row.cls = CLASS_DEFS[h.c] ? h.c : row.cls;
+    }
+    this.netSend('roster', this._rosterMsg());
+    this.updateLobbyUI();
+    this.sfx.play('ui');
+  });
+
+  net.on('deny', d => {
+    this._mpStatus(d && d.r ? d.r : 'REJECTED BY HOST', 'err');
+    clearTimeout(this.joinTimeout);
+    this._teardownNet();
+  });
+
+  net.on('roster', rows => {
+    if (this.netRole !== 'client') return;
+    this.roster = rows.map(r => ({ pid: r[0], id: r[1], name: r[2], cls: r[3] }));
+    clearTimeout(this.joinTimeout);
+    const hostRow = this.roster.find(r => r.id === 0);
+    if (hostRow) this.hostPid = hostRow.pid;
+    const meRow = this.roster.find(r => r.pid === this.net.selfId);
+    if (!meRow) return;
+    this.helloAcked = true;
+    this.myId = meRow.id;
+    if (this.state === 'menu') {
+      this._showLobby(false);
+      this.updateLobbyUI();
+      this.sfx.play('ui');
+    }
+  });
+
+  net.on('start', pl => {
+    if (this.netRole !== 'client') return;
+    clearTimeout(this.joinTimeout);
+    this.beginMatchClient(pl);
+  });
+
+  net.on('snap', s => this.applySnap(s));
+
+  net.on('input', (m, pid) => {
+    if (this.netRole !== 'host') return;
+    for (const r of this.remote) {
+      if (r.peerId === pid) { r.applyInput(m); return; }
+    }
+  });
+
+  net.on('shot', (m, pid) => {
+    const end = new THREE.Vector3(m.e[0], m.e[1], m.e[2]);
+    if (this.netRole === 'host') {
+      const np = this.remote.find(r => r.peerId === pid);
+      if (!np || !np.alive) return;
+      const def = WEAPONS[m.w];
+      if (!def || def.proj) return;
+      const now = performance.now();
+      if (!np.shotTimes) np.shotTimes = {};
+      const minGap = 60000 / def.rpm * 0.7;
+      if (now - (np.shotTimes[m.w] || 0) < minGap) return;
+      np.shotTimes[m.w] = now;
+      np.showShot(m.w, end);
+      if (m.h !== null && m.h !== undefined && m.h >= 0) {
+        const victim = this.entityById(m.h);
+        if (victim && victim.alive && victim !== np) this.hurt(victim, m.d, np, !!m.hs, m.w);
+      }
+    } else {
+      const g = this.remote.find(r => r.id === m.sid);
+      if (g) g.showShot(m.w, end);
+    }
+  });
+
+  net.on('proj', m => {
+    if (m.k === 'r') this.addRemoteRocket(m);
+    else this.addRemoteGrenade(m);
+  });
+
+  net.on('boom', m => this.receiveBoom(m));
+
+  net.on('feed', d => {
+    this.hud.killFeed(d.kn, d.kc, d.vn, d.vc, WPN_LABEL[d.w] || d.w, !!d.h);
+  });
+
+  net.on('died', d => {
+    this.lastKillerName = d.kn;
+    const p = this.player;
+    if (p && p.alive) {
+      p.alive = false;
+      p.respawnT = d.rt || 3.5;
+      p.fireHeld = false; p.adsHeld = false;
+      this.canvas.style.filter = 'grayscale(0.85) brightness(0.8)';
+      this.hud.showDeath(d.kn);
+      this.resetHeldInputs();
+    }
+  });
+
+  net.on('kb', v => {
+    const p = this.player;
+    if (!p || !p.alive) return;
+    p.body.vel.x += v.x;
+    p.body.vel.z += v.z;
+    p.body.vel.y = Math.max(p.body.vel.y, v.y);
+  });
+
+  net.on('pick', m => {
+    if (this.pickups) this.pickups.takeRemote(m.i, m.t);
+  });
+
+  net.on('end', m => this.showEndRemote(m));
 };
 
 Game.prototype.endMatch = function (winner) {
@@ -330,9 +869,45 @@ Game.prototype.endMatch = function (winner) {
     col: e.cls ? e.cls.color : '#' + e.colorHex.toString(16).padStart(6, '0'),
     k: e.score.k, d: e.score.d, me: !!e.isPlayer
   }));
+  if (this.isNetHost) {
+    this.netSend('end', {
+      rows: list.map(e => [e.id !== undefined ? e.id : -1, e.score.k, e.score.d]),
+      win: winner && winner.id !== undefined ? winner.id : -1,
+      wn: winner ? winner.name : '?'
+    });
+  }
   this.hud.endScreen(rows, winner.isPlayer ? 'VICTORY' : winner.name + ' WINS', !!winner.isPlayer);
+  U.el('rematchBtn').classList.toggle('hidden', this.netRole === 'client');
+  U.el('endWait').classList.toggle('hidden', this.netRole !== 'client');
   U.el('end').classList.remove('hidden');
   U.el('hud').classList.add('hidden');
+};
+
+Game.prototype.showEndRemote = function (m) {
+  if (this.state !== 'playing') return;
+  this.state = 'end';
+  document.exitPointerLock();
+  this.resetHeldInputs();
+  this.canvas.style.filter = '';
+  this.hud.hideDeath();
+  const rows = m.rows.map(r => {
+    const meta = this.metaForId(r[0]);
+    return { name: meta.name, col: meta.col, k: r[1], d: r[2], me: r[0] === this.myId };
+  }).sort((a, b) => b.k - a.k || a.d - b.d);
+  this.hud.endScreen(rows, m.win === this.myId ? 'VICTORY' : m.wn + ' WINS', m.win === this.myId);
+  U.el('rematchBtn').classList.add('hidden');
+  U.el('endWait').classList.remove('hidden');
+  U.el('end').classList.remove('hidden');
+  U.el('hud').classList.add('hidden');
+};
+
+Game.prototype.metaForId = function (id) {
+  if (this.player && id === this.myId) {
+    return { name: this.player.name, col: this.player.cls ? this.player.cls.color : '#ffffff' };
+  }
+  const m = this.entMeta[id];
+  if (m) return m;
+  return { name: '???', col: '#ffffff' };
 };
 
 Game.prototype.quitToMenu = function () {
@@ -340,9 +915,17 @@ Game.prototype.quitToMenu = function () {
   document.exitPointerLock();
   this.resetHeldInputs();
   this.clearMatchObjects();
+  this._teardownNet();
+  clearTimeout(this.joinTimeout);
   U.el('pause').classList.add('hidden');
   U.el('end').classList.add('hidden');
   U.el('hud').classList.add('hidden');
+  U.el('mp').classList.add('hidden');
+  U.el('mpLobby').classList.add('hidden');
+  U.el('mpEntry').classList.remove('hidden');
+  U.el('rematchBtn').classList.remove('hidden');
+  U.el('endWait').classList.add('hidden');
+  this._mpStatus('', '');
   U.el('menu').classList.remove('hidden');
 };
 
@@ -351,8 +934,39 @@ Game.prototype.bindUI = function () {
   U.el('playBtn').onclick = () => { self.sfx.ensure(); self.sfx.play('ui'); self.startMatch(); };
   U.el('resumeBtn').onclick = () => { self.sfx.play('ui'); const pl = self.canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(() => {}); };
   U.el('quitBtn').onclick = () => { self.sfx.play('ui'); self.quitToMenu(); };
-  U.el('rematchBtn').onclick = () => { self.sfx.play('ui'); self.startMatch(); };
+  U.el('rematchBtn').onclick = () => {
+    self.sfx.play('ui');
+    if (self.isNetHost) self.beginMatchHost();
+    else self.startMatch();
+  };
   U.el('endMenuBtn').onclick = () => { self.sfx.play('ui'); self.quitToMenu(); };
+
+  U.el('mpBtn').onclick = () => {
+    self.sfx.ensure(); self.sfx.play('ui');
+    U.el('menu').classList.add('hidden');
+    U.el('mp').classList.remove('hidden');
+    U.el('mpEntry').classList.remove('hidden');
+    U.el('mpLobby').classList.add('hidden');
+    self._mpStatus('', '');
+  };
+  U.el('mpBackBtn').onclick = () => { self.sfx.play('ui'); self.leaveLobby(); };
+  U.el('hostBtn').onclick = () => self.mpHost();
+  U.el('joinBtn').onclick = () => self.mpJoin();
+  U.el('joinCode').addEventListener('keydown', e => {
+    if (e.key === 'Enter') self.mpJoin();
+    e.stopPropagation();
+  });
+  U.el('mpStartBtn').onclick = () => { self.sfx.play('ui'); self.beginMatchHost(); };
+  U.el('copyCodeBtn').onclick = () => {
+    const code = self.roomCode || '';
+    if (!code) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(() => {
+        U.el('copyCodeBtn').textContent = 'COPIED';
+        setTimeout(() => { U.el('copyCodeBtn').textContent = 'COPY'; }, 1200);
+      }).catch(() => {});
+    }
+  };
 
   document.querySelectorAll('.classCard').forEach(c => {
     c.onclick = () => {
@@ -486,11 +1100,29 @@ Game.prototype.loop = function () {
     this.camera.fov = U.damp(this.camera.fov, 60, 4, dt);
     this.camera.updateProjectionMatrix();
     this.effects.update(dt);
-  } else if (st === 'playing') {
+  } else if (st === 'playing' || (st === 'paused' && this.netRole !== 'off')) {
+    const live = st === 'playing';
     const p = this.player;
-    p.update(dt);
-    for (const b of this.bots) b.update(dt);
-    this.pickups.update(dt);
+    if (live) p.update(dt);
+
+    if (this.netRole === 'off') {
+      for (const b of this.bots) b.update(dt);
+      this.pickups.update(dt);
+    } else {
+      for (const r of this.remote) r.update(dt);
+      if (this.isNetHost) {
+        for (const b of this.bots) b.update(dt);
+        this.pickups.update(dt);
+        this.snapT -= dt;
+        if (this.snapT <= 0) { this.snapT = 0.05; this.sendSnap(); }
+      } else {
+        this.pickups.animate(dt);
+        if (live) {
+          this.inputT -= dt;
+          if (this.inputT <= 0) { this.inputT = 0.033; this.sendInput(); }
+        }
+      }
+    }
     this.updateProjectiles(dt);
     this.effects.update(dt);
     this.shake *= Math.exp(-6 * dt);
@@ -502,7 +1134,7 @@ Game.prototype.loop = function () {
       this.camera.position.set(p.body.pos.x, p.body.pos.y + 0.6, p.body.pos.z);
       this.camera.rotation.z = U.damp(this.camera.rotation.z, 0.5, 3, dt);
       this.hud.deathTimer(p.respawnT);
-      if (p.respawnT <= 0) {
+      if (p.respawnT <= 0 && this.netRole !== 'client') {
         p.respawn();
         this.canvas.style.filter = '';
         this.hud.hideDeath();

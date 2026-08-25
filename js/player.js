@@ -287,6 +287,7 @@ class Player {
     const spreadMul = 1 + hsp * 0.055 + (this.body.grounded ? 0 : 0.9) + this.crouchAmt * -0.25;
     const spr = U.lerp(def.spread, def.adsSpr === undefined ? def.spread : def.adsSpr, this.adsAmt) * Math.max(spreadMul, 0.35);
     let anyHit = false, anyHead = false, anyKill = false;
+    const netClient = g.netRole === 'client';
 
     for (let i = 0; i < pellets; i++) {
       const dir = baseDir.clone()
@@ -314,14 +315,21 @@ class Player {
         const fallStart = def.range * 0.45;
         if (bestT > fallStart) dmg *= U.lerp(1, 0.55, U.clamp((bestT - fallStart) / (def.range - fallStart), 0, 1));
         dmg = Math.round(dmg);
-        const damaged = g.hurt(hitEnt, dmg, this, isHead, this.cur);
-        if (damaged) {
+        if (netClient) {
+          g.clientClaimHit(hitEnt, dmg, isHead, this.cur, end);
           anyHit = true;
           if (isHead) anyHead = true;
-          if (!hitEnt.alive) anyKill = true;
-          g.effects.impact(end, true);
           g.effects.dmgNum(end, dmg, isHead ? 'crit' : '');
+        } else {
+          const damaged = g.hurt(hitEnt, dmg, this, isHead, this.cur);
+          if (damaged) {
+            anyHit = true;
+            if (isHead) anyHead = true;
+            if (!hitEnt.alive) anyKill = true;
+            g.effects.dmgNum(end, dmg, isHead ? 'crit' : '');
+          }
         }
+        g.effects.impact(end, true);
       } else if (wall) {
         g.effects.impact(end, false);
       }
@@ -361,8 +369,8 @@ class Player {
     return true;
   }
 
-  respawn() {
-    const s = this.game.pickSpawn(this);
+  respawn(at) {
+    const s = at || this.game.pickSpawn(this);
     this.body.pos.set(s.x, s.y + 0.1, s.z);
     this.body.vel.set(0, 0, 0);
     this.hp = this.maxHp;
