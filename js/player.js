@@ -4,6 +4,8 @@ const CLASS_DEFS = {
   heavy: { label: 'HEAVY', hp: 150, spd: 0.86, dash: 1.35, resist: 0.45, color: '#ff9e40', hex: 0xff9e40 }
 };
 
+function _ez(t) { t = U.clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+
 class Player {
   constructor(game, clsKey) {
     this.game = game;
@@ -245,11 +247,28 @@ class Player {
     if (this.body.grounded) this.bobT += hsp * dt * 1.15;
     const mvF = U.clamp(hsp / 8, 0, 1) * (this.body.grounded ? 1 : 0.15);
     const model = this.models[this.cur];
-    const bx = U.lerp(0.27, 0, this.adsAmt) + Math.cos(this.bobT * 2) * 0.012 * mvF - this.swayX * 0.6;
-    const by = U.lerp(-0.25, -0.175, this.adsAmt) + Math.abs(Math.sin(this.bobT * 2)) * 0.014 * mvF - this.swayY * 0.5 - this.landDip * 0.35;
+    let bx = U.lerp(0.27, 0, this.adsAmt) + Math.cos(this.bobT * 2) * 0.012 * mvF - this.swayX * 0.6;
+    let by = U.lerp(-0.25, -0.175, this.adsAmt) + Math.abs(Math.sin(this.bobT * 2)) * 0.014 * mvF - this.swayY * 0.5 - this.landDip * 0.35;
     const bz = U.lerp(-0.52, -0.4, this.adsAmt) + this.vmKick * 0.07;
+    let relDip = 0;
+    const mag = model.userData.mag;
+    if (this.reloading) {
+      const rp = U.clamp(1 - this.reloading.t / this.reloading.total, 0, 1);
+      relDip = Math.sin(rp * Math.PI);
+      const mf = rp < 0.45 ? _ez(rp / 0.45) : 1 - _ez((rp - 0.55) / 0.45);
+      if (mag) {
+        if (mag.userData.by === undefined) { mag.userData.by = mag.position.y; mag.userData.brx = mag.rotation.x; }
+        mag.position.y = mag.userData.by - mf * 0.24;
+        mag.rotation.x = mag.userData.brx + mf * 1.15;
+      }
+    } else if (mag && mag.userData.by !== undefined && mag.position.y !== mag.userData.by) {
+      mag.position.y = mag.userData.by;
+      mag.rotation.x = mag.userData.brx;
+    }
+    bx -= relDip * 0.05;
+    by -= relDip * 0.18;
     model.position.set(bx, by, bz);
-    model.rotation.set(this.vmKick * 0.12 + this.swayY * 1.2, this.swayX * 1.6, this.swayX * 0.8);
+    model.rotation.set(this.vmKick * 0.12 + this.swayY * 1.2 + relDip * 0.28, this.swayX * 1.6, this.swayX * 0.8 + relDip * 0.65);
     if (this.flashT > 0) {
       this.flashT -= dt;
       if (this.flashT <= 0) model.userData.flash.visible = false;

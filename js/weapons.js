@@ -39,7 +39,7 @@ function buildViewModel(kind) {
   if (kind === 'rifle') {
     vbox(g, 0.09, 0.13, 0.58, 0, 0, -0.18, GM);
     vbox(g, 0.05, 0.05, 0.34, 0, 0.01, -0.6, GM2);
-    vbox(g, 0.07, 0.2, 0.12, 0, -0.14, -0.16, GM2, 0.28);
+    g.userData.mag = vbox(g, 0.07, 0.2, 0.12, 0, -0.14, -0.16, GM2, 0.28);
     vbox(g, 0.08, 0.1, 0.22, 0, -0.03, 0.2, WOOD);
     vbox(g, 0.03, 0.05, 0.1, 0, 0.09, -0.32, GM2);
     muzzleZ = -0.78;
@@ -63,7 +63,7 @@ function buildViewModel(kind) {
     muzzleZ = -0.78;
   } else {
     vbox(g, 0.07, 0.13, 0.26, 0, 0, -0.1, GM);
-    vbox(g, 0.06, 0.16, 0.09, 0, -0.13, 0.02, GM2, 0.15);
+    g.userData.mag = vbox(g, 0.06, 0.16, 0.09, 0, -0.13, 0.02, GM2, 0.15);
     muzzleZ = -0.25;
   }
   const muzzle = new THREE.Object3D();
