@@ -121,6 +121,7 @@ class Ghost {
     const a = buildCharacterMesh(this.name, colorHex, this.lvl);
     this.legL = a.legL; this.legR = a.legR; this.armL = a.armL; this.armR = a.armR;
     this.torso = a.torso; this.head = a.head; this.visor = a.visor; this.gun = a.gun;
+    this.setGun = a.setGun;
     this.muzzleTip = a.muzzleTip; this.flash = a.flash; this.tag = a.tag;
     this.mesh = a.group;
     this.tPitch = 0;
