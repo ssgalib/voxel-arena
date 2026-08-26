@@ -48,7 +48,7 @@ class Net {
 
   addStream(stream, toPid) {
     if (!this.room) return;
-    try { this.room.addStream(stream, toPid); } catch (e) {}
+    try { this.room.addStream(stream, toPid !== undefined ? { target: toPid } : {}); } catch (e) {}
   }
 
   onPeerStream(fn) {

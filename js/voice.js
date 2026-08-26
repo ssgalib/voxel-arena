@@ -74,7 +74,8 @@ Voice.prototype.onRemoteStream = function (pid, stream) {
   const ctx = this.game.sfx.ctx;
   this._dropPeer(pid);
   const el = document.createElement('audio');
-  el.muted = true;
+  el.autoplay = true;
+  el.volume = 0;
   el.srcObject = stream;
   el.play().catch(() => {});
   document.body.appendChild(el);

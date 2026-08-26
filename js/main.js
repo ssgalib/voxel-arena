@@ -555,7 +555,7 @@ Game.prototype.sendSnap = function () {
     return [
       e.id !== undefined ? e.id : -1,
       rnd2(e.body.pos.x), rnd2(e.body.pos.y), rnd2(e.body.pos.z),
-      e.mesh ? Math.round(e.mesh.rotation.y * 100) / 100 : 0,
+      e.mesh ? Math.round(e.mesh.rotation.y * 100) / 100 : (e.isPlayer ? Math.round((e.yaw + Math.PI) * 100) / 100 : 0),
       Math.round(e.hp), e.score.k | 0, e.score.d | 0,
       e.alive ? 1 : 0,
       Math.round(Math.max(0, e.alive ? 0 : (e.respawnT || 0)) * 10),
@@ -624,7 +624,7 @@ Game.prototype.sendInput = function () {
   this.netSend('input', {
     x: rnd2(p.body.pos.x), y: rnd2(p.body.pos.y), z: rnd2(p.body.pos.z),
     vx: rnd2(p.body.vel.x), vy: rnd2(p.body.vel.y), vz: rnd2(p.body.vel.z),
-    yaw: Math.round(p.yaw * 1000) / 1000,
+    yaw: Math.round((p.yaw + Math.PI) * 1000) / 1000,
     cr: p.crouchAmt > 0.5 ? 1 : 0,
     pt: Math.round(p.pitch * 100) / 100,
     ads: p.adsAmt > 0.5 ? 1 : 0,

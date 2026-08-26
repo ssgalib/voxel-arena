@@ -173,7 +173,10 @@ class Ghost {
         if (!b) return a;
         const span = b.t - a.t;
         const f = span > 1 ? U.clamp((target - a.t) / span, 0, 1.25) : 1;
-        return { x: U.lerp(a.x, b.x, f), y: U.lerp(a.y, b.y, f), z: U.lerp(a.z, b.z, f), yaw: a.yaw + (b.yaw - a.yaw) * f, vx: (b.x - a.x) / (span / 1000), vz: (b.z - a.z) / (span / 1000) };
+        let dy = b.yaw - a.yaw;
+        while (dy > Math.PI) dy -= Math.PI * 2;
+        while (dy < -Math.PI) dy += Math.PI * 2;
+        return { x: U.lerp(a.x, b.x, f), y: U.lerp(a.y, b.y, f), z: U.lerp(a.z, b.z, f), yaw: a.yaw + dy * f, vx: (b.x - a.x) / (span / 1000), vz: (b.z - a.z) / (span / 1000) };
       }
     }
     return s[s.length - 1];
