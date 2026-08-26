@@ -7,11 +7,12 @@ const DIFFS = {
 };
 
 class Bot {
-  constructor(game, name, colorHex, diffKey, lvl) {
+  constructor(game, name, colorHex, diffKey, lvl, clsKey) {
     this.game = game;
     this.name = name;
     this.colorHex = colorHex;
     this.lvl = lvl | 0;
+    this.clsKey = clsKey || U.pick(Object.keys(CLASS_DEFS));
     this.diff = DIFFS[diffKey] || DIFFS.normal;
     this.isPlayer = false;
     this.score = { k: 0, d: 0 };
@@ -40,13 +41,19 @@ class Bot {
     this.idleT = 0;
     this.animPhase = 0;
     this.speedMul = U.rand(0.88, 1.08);
+    this.recT = 0;
+    this.lean = 0;
+    this.dashLean = 0;
+    this.landT = 0;
+    this.spawnT = 0.35;
+    this.deathT = -1;
     this._buildMesh();
     const s = U.pick(game.world.spawns);
     this.body.pos.set(s.x, s.y, s.z);
   }
 
   _buildMesh() {
-    const a = buildCharacterMesh(this.name, this.colorHex, this.lvl);
+    const a = buildCharacterMesh(this.name, this.colorHex, this.lvl, this.clsKey);
     this.legL = a.legL;
     this.legR = a.legR;
     this.armL = a.armL;
@@ -94,7 +101,7 @@ class Bot {
   die(from, isHead, wpn) {
     this.alive = false;
     this.score.d++;
-    this.mesh.visible = false;
+    this.deathT = 0;
     this.game.effects.burst(this.center(), { n: 24, color: this.colorHex, speed: 8, size: 0.22, life: 0.9 });
     this.game.effects.burst(this.center(), { n: 10, color: 0xc22a2a, speed: 6, size: 0.16, life: 0.7 });
     this.game.registerKill(from, this, isHead, wpn);
@@ -114,6 +121,10 @@ class Bot {
     this.target = null;
     this.goal = null;
     this.mesh.visible = true;
+    this.mesh.rotation.x = 0;
+    this.mesh.scale.setScalar(1);
+    this.deathT = -1;
+    this.spawnT = 0.35;
     this.tag.draw(1);
   }
 
@@ -142,6 +153,11 @@ class Bot {
 
   update(dt) {
     if (!this.alive) {
+      if (this.mesh.visible && this.deathT >= 0) {
+        this.deathT += dt;
+        avatarDeathAnim(this, dt);
+        if (this.deathT > 0.55) this.mesh.visible = false;
+      }
       this.respawnT -= dt;
       if (this.respawnT <= 0) this.respawn();
       return;
@@ -267,6 +283,7 @@ class Bot {
 
     this.flash.visible = true;
     this.flashT = 0.05;
+    this.recT = 0.12;
     this.game.sfx.play('rifle', eye, 0.8);
 
     const tv = Math.sqrt((tgt.body ? tgt.body.vel.x : 0) ** 2 + (tgt.body ? tgt.body.vel.z : 0) ** 2);

@@ -157,36 +157,130 @@ function buildCrown() {
   return g;
 }
 
-function buildCharacterMesh(name, colorHex, level) {
+function shadeHex(hex, f) {
+  const c = new THREE.Color(hex).multiplyScalar(f);
+  return '#' + c.getHex().toString(16).padStart(6, '0').slice(-6);
+}
+
+const _texCache = new Map();
+function bodyTex(hex, emblem) {
+  const key = hex + ':' + (emblem || '');
+  const hit = _texCache.get(key);
+  if (hit) return hit;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, shadeHex(hex, 1.22));
+  grad.addColorStop(0.5, shadeHex(hex, 1));
+  grad.addColorStop(1, shadeHex(hex, 0.72));
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  g.strokeStyle = 'rgba(0,0,0,0.28)';
+  g.lineWidth = 2;
+  g.strokeRect(1, 1, 62, 62);
+  g.beginPath(); g.moveTo(4, 12); g.lineTo(60, 12); g.stroke();
+  g.beginPath(); g.moveTo(4, 52); g.lineTo(60, 52); g.stroke();
+  if (emblem) {
+    g.strokeStyle = 'rgba(255,255,255,0.9)';
+    g.lineWidth = 4;
+    g.lineJoin = 'round';
+    g.lineCap = 'round';
+    if (emblem === 'chevron') {
+      g.beginPath(); g.moveTo(16, 38); g.lineTo(32, 24); g.lineTo(48, 38); g.stroke();
+    } else if (emblem === 'bolt') {
+      g.fillStyle = 'rgba(255,255,255,0.9)';
+      g.beginPath(); g.moveTo(36, 20); g.lineTo(25, 34); g.lineTo(32, 34); g.lineTo(28, 44); g.lineTo(39, 30); g.lineTo(32, 30); g.closePath(); g.fill();
+    } else if (emblem === 'shield') {
+      g.beginPath();
+      g.moveTo(32, 18); g.lineTo(44, 24); g.lineTo(44, 36); g.quadraticCurveTo(44, 44, 32, 48);
+      g.quadraticCurveTo(20, 44, 20, 36); g.lineTo(20, 24); g.closePath(); g.stroke();
+    }
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = THREE.NearestFilter;
+  _texCache.set(key, tex);
+  return tex;
+}
+
+function texMat(hex, emblem) {
+  return new THREE.MeshLambertMaterial({ map: bodyTex(hex, emblem) });
+}
+
+const CLASS_GEAR = {
+  assault: { emblem: 'chevron', helmet: true, pads: 0.1, slim: 1 },
+  scout: { emblem: 'bolt', backpack: true, pads: 0.06, slim: 0.82 },
+  heavy: { emblem: 'shield', chestplate: true, pads: 0.2, slim: 1.12 }
+};
+
+const ARMOR_ACCENT = { assault: 0x4fc3f7, scout: 0x76ff03, heavy: 0xff9e40 };
+
+function buildCharacterMesh(name, colorHex, level, clsKey) {
   const c = colorHex;
   const dark = new THREE.Color(c).multiplyScalar(0.65).getHex();
-  const g = new THREE.Group();
   const skin = 0xd9a066;
-  function limb(w, h, d, x, y, z, col) {
+  const gear = CLASS_GEAR[clsKey] || CLASS_GEAR.assault;
+  const acc = ARMOR_ACCENT[clsKey] || ARMOR_ACCENT.assault;
+  const legCol = 0x39404d, bootCol = 0x23272e, gloveCol = 0x23272e;
+  const g = new THREE.Group();
+
+  function limbPivot(x, y, z) {
     const pivot = new THREE.Group();
     pivot.position.set(x, y, z);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: col }));
-    m.position.y = -h / 2;
-    m.castShadow = true;
-    pivot.add(m);
     g.add(pivot);
     return pivot;
   }
-  const legL = limb(0.26, 0.82, 0.26, -0.17, 0.84, 0, 0x39404d);
-  const legR = limb(0.26, 0.82, 0.26, 0.17, 0.84, 0, 0x39404d);
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.4), new THREE.MeshLambertMaterial({ color: c }));
-  torso.position.y = 1.21;
-  torso.castShadow = true;
-  g.add(torso);
-  const armL = limb(0.2, 0.66, 0.2, -0.47, 1.52, 0, c);
-  const armR = limb(0.2, 0.66, 0.2, 0.47, 1.52, 0, c);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.48, 0.48), new THREE.MeshLambertMaterial({ color: skin }));
-  head.position.y = 1.83;
+  function part(pivot, w, h, d, y, mat, cast) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.y = y;
+    if (cast !== false) m.castShadow = true;
+    pivot.add(m);
+    return m;
+  }
+  function bodyPart(parent, w, h, d, x, y, z, mat) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    parent.add(m);
+    return m;
+  }
+
+  const legL = limbPivot(-0.17, 0.86, 0);
+  const legR = limbPivot(0.17, 0.86, 0);
+  part(legL, 0.27 * gear.slim, 0.58, 0.28, -0.29, texMat(legCol), true);
+  part(legR, 0.27 * gear.slim, 0.58, 0.28, -0.29, texMat(legCol), true);
+  const bootW = gear.bigBoots ? 0.33 : 0.29;
+  part(legL, bootW, 0.24, 0.34, -0.7, texMat(bootCol), true);
+  part(legR, bootW, 0.24, 0.34, -0.7, texMat(bootCol), true);
+
+  const torso = bodyPart(g, 0.72, 0.44, 0.4, 0, 1.36, 0, texMat(c, gear.emblem));
+  const hip = bodyPart(g, 0.6, 0.3, 0.36, 0, 1.02, 0, texMat(c));
+  bodyPart(g, 0.62, 0.06, 0.38, 0, 1.18, 0, texMat(acc));
+
+  const armL = limbPivot(-0.46, 1.52, 0);
+  const armR = limbPivot(0.46, 1.52, 0);
+  part(armL, 0.21 * gear.slim, 0.44, 0.21, -0.22, texMat(c), true);
+  part(armR, 0.21 * gear.slim, 0.44, 0.21, -0.22, texMat(c), true);
+  part(armL, 0.21 * gear.slim, 0.16, 0.24, -0.52, texMat(gloveCol), true);
+  part(armR, 0.21 * gear.slim, 0.16, 0.24, -0.52, texMat(gloveCol), true);
+  bodyPart(g, gear.pads * 2.4, 0.12, 0.34, -0.47, 1.56, 0, texMat(acc));
+  bodyPart(g, gear.pads * 2.4, 0.12, 0.34, 0.47, 1.56, 0, texMat(acc));
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.46, 0.46), texMat(skin));
+  head.position.y = 1.82;
   head.castShadow = true;
   g.add(head);
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.1, 0.03), new THREE.MeshLambertMaterial({ color: dark }));
-  visor.position.set(0, 1.87, 0.245);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.1, 0.03), new THREE.MeshLambertMaterial({ color: dark, emissive: acc, emissiveIntensity: 0.55 }));
+  visor.position.set(0, 1.86, 0.235);
   g.add(visor);
+  if (gear.helmet) {
+    const helm = bodyPart(g, 0.54, 0.16, 0.54, 0, 2.13, 0, texMat(0x3a4150));
+    helm.castShadow = true;
+    bodyPart(g, 0.56, 0.05, 0.56, 0, 2.04, 0, texMat(acc));
+  }
+  if (gear.backpack) bodyPart(g, 0.42, 0.52, 0.2, 0, 1.34, -0.24, texMat(acc));
+  if (gear.chestplate) bodyPart(g, 0.84, 0.5, 0.46, 0, 1.36, 0, texMat(acc));
+
   const gun = new THREE.Group();
   gun.position.set(0.42, 1.28, 0.42);
   gun.scale.setScalar(1.3);
@@ -213,6 +307,7 @@ function buildCharacterMesh(name, colorHex, level) {
   const api = {
     group: g, legL, legR, armL, armR, torso, head, visor, gun,
     muzzleTip, flash, tag, crown,
+    recT: 0, lean: 0, dashLean: 0, landT: 0, spawnT: 0.35, deathT: -1,
     setGun(kind) {
       if (!guns[kind] || this.curGun === kind) return;
       if (this.curGun) guns[this.curGun].visible = false;
@@ -221,15 +316,25 @@ function buildCharacterMesh(name, colorHex, level) {
     },
     setCrown(on) {
       if (this.crown.visible !== !!on) this.crown.visible = !!on;
-    }
+    },
+    triggerRecoil() { this.recT = 0.12; }
   };
   api.curGun = 'rifle';
   return api;
 }
 
+function avatarDeathAnim(av, dt) {
+  const k = U.clamp(av.deathT / 0.5, 0, 1);
+  av.mesh.rotation.x = -1.35 * k * k;
+  av.mesh.position.y = -0.25 * k;
+}
+
 function animateAvatar(av, hsp, dt, aiming, pitch, crouch) {
   av.animPhase = (av.animPhase || 0) + hsp * dt * 1.6;
   av.aimAmt = U.damp(av.aimAmt || 0, aiming ? 1 : 0, 12, dt);
+  if (av.recT > 0) av.recT -= dt;
+  if (av.landT > 0) av.landT -= dt;
+  if (av.spawnT > 0) av.spawnT -= dt;
   const a = av.aimAmt;
   const p = U.clamp(pitch || 0, -1.53, 1.53);
   const c = U.clamp(crouch || 0, 0, 1);
@@ -239,18 +344,25 @@ function animateAvatar(av, hsp, dt, aiming, pitch, crouch) {
   av.legR.rotation.x = -s * swing;
   av.legL.scale.y = av.legR.scale.y = 1 - 0.3 * c;
   if (av.torso) {
-    av.torso.position.y = 1.21 - 0.28 * c;
-    av.head.position.y = 1.83 - 0.42 * c;
-    av.visor.position.y = 1.87 - 0.42 * c;
+    const breathe = hsp < 0.4 && a < 0.3 && av.landT <= 0 ? Math.sin(performance.now() * 0.003) * 0.008 : 0;
+    av.torso.position.y = 1.36 - 0.28 * c + breathe;
+    av.head.position.y = 1.82 - 0.42 * c + breathe;
+    av.visor.position.y = 1.86 - 0.42 * c + breathe;
     av.gun.position.y = 1.28 - 0.35 * c;
     const tagTarget = av.crown && av.crown.visible ? 3.16 : 2.72;
     av.tagY = U.damp(av.tagY || 2.72, tagTarget, 8, dt);
     av.tag.sprite.position.y = av.tagY - 0.42 * c;
   }
   av.armL.rotation.x = U.lerp(-s * swing * 0.7, -1.05, a * 0.85);
-  av.armR.rotation.x = U.lerp(s * swing * 0.7 - 0.25, -1.3 - p * 0.55, a);
+  av.armR.rotation.x = U.lerp(s * swing * 0.7 - 0.25, -1.3 - p * 0.55, a) + av.recT * 0.5;
   av.gun.rotation.x = -p * (0.3 + 0.7 * a);
-  av.gun.position.z = 0.42 + a * 0.12;
+  av.gun.position.z = 0.42 + a * 0.12 + av.recT * 0.14;
+  av.lean = U.damp(av.lean, av.dashLean || 0, 12, dt);
+  av.mesh.rotation.z = -av.lean * 0.24;
+  const sq = av.landT > 0 ? Math.sin(Math.PI * (1 - av.landT / 0.22)) * 0.12 : 0;
+  const spK = av.spawnT > 0 ? U.clamp(1 - av.spawnT / 0.35, 0, 1) : 1;
+  const scl = 0.25 + 0.75 * spK * spK;
+  av.mesh.scale.set(scl * (1 + sq * 0.8), scl * (1 - sq), scl * (1 + sq * 0.8));
   if (av.crown && av.crown.visible) {
     av.crown.position.y = 2.32 + Math.sin(performance.now() * 0.004) * 0.05;
     av.crown.rotation.y += dt * 1.6;

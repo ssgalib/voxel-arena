@@ -3,7 +3,7 @@ const NET_INPUT_TIMEOUT = 3;
 
 class NetPlayer extends Bot {
   constructor(game, id, name, clsKey, peerId, lvl) {
-    super(game, name || 'PLAYER', CLASS_DEFS[clsKey] ? CLASS_DEFS[clsKey].hex : 0x4fc3f7, 'normal', lvl || 0);
+    super(game, name || 'PLAYER', CLASS_DEFS[clsKey] ? CLASS_DEFS[clsKey].hex : 0x4fc3f7, 'normal', lvl || 0, clsKey);
     this.id = id;
     this.peerId = peerId;
     this.clsKey = clsKey || 'assault';
@@ -36,6 +36,7 @@ class NetPlayer extends Bot {
     this.netPitch = U.clamp(parseFloat(m.pt) || 0, -1.53, 1.53);
     this.netAds = !!m.ads;
     this.netCr = m.cr ? 1 : 0;
+    this.netDash = m.d ? 1 : 0;
     this.wpnIdx = Math.max(0, Math.min(SLOT_ORDER.length - 1, m.w | 0));
     if (!this.alive) return;
     b.pos.set(m.x, Math.max(m.y, -2), m.z);
@@ -51,6 +52,7 @@ class NetPlayer extends Bot {
 
   showShot(wpn, end) {
     this.fireVisT = 0.35;
+    this.recT = 0.12;
     this.flash.visible = true;
     this.flashT = 0.05;
     const eye = new THREE.Vector3(this.body.pos.x, this.body.pos.y + 1.5, this.body.pos.z);
@@ -61,6 +63,11 @@ class NetPlayer extends Bot {
 
   update(dt) {
     if (!this.alive) {
+      if (this.mesh.visible && this.deathT >= 0) {
+        this.deathT += dt;
+        avatarDeathAnim(this, dt);
+        if (this.deathT > 0.55) this.mesh.visible = false;
+      }
       this.respawnT -= dt;
       if (this.respawnT <= 0) this.respawn();
       return;
@@ -75,6 +82,7 @@ class NetPlayer extends Bot {
     const hsp = Math.sqrt(this.body.vel.x ** 2 + this.body.vel.z ** 2);
     this.pitchS = U.damp(this.pitchS, this.netPitch, 14, dt);
     this.crS = U.damp(this.crS, this.netCr, 10, dt);
+    this.dashLean = this.netDash ? 1 : 0;
     this.setGun(SLOT_ORDER[this.wpnIdx || 0]);
     animateAvatar(this, hsp, dt, this.fireVisT > 0 || this.netAds, this.pitchS, this.crS);
 
@@ -98,12 +106,13 @@ class NetPlayer extends Bot {
 }
 
 class Ghost {
-  constructor(game, id, name, colorHex, lvl) {
+  constructor(game, id, name, colorHex, lvl, clsKey) {
     this.game = game;
     this.id = id;
     this.name = name || 'PLAYER';
     this.colorHex = colorHex;
     this.lvl = lvl | 0;
+    this.clsKey = clsKey || 'assault';
     this.isPlayer = false;
     this.score = { k: 0, d: 0 };
     this.maxHp = 100;
@@ -116,9 +125,15 @@ class Ghost {
     this.animPhase = 0;
     this.flashT = 0;
     this.fireVisT = 0;
+    this.recT = 0;
+    this.lean = 0;
+    this.dashLean = 0;
+    this.landT = 0;
+    this.spawnT = 0.35;
+    this.deathT = -1;
     this.samples = [];
     this.hasSample = false;
-    const a = buildCharacterMesh(this.name, colorHex, this.lvl);
+    const a = buildCharacterMesh(this.name, colorHex, this.lvl, this.clsKey);
     this.legL = a.legL; this.legR = a.legR; this.armL = a.armL; this.armR = a.armR;
     this.torso = a.torso; this.head = a.head; this.visor = a.visor; this.gun = a.gun;
     this.setGun = a.setGun;
@@ -164,6 +179,12 @@ class Ghost {
       this.body.pos.set(e.x, e.y, e.z);
       this.samples.length = 0;
       this.samples.push({ t: performance.now(), x: e.x, y: e.y, z: e.z, yaw: e.yaw });
+      this.mesh.rotation.x = 0;
+      this.mesh.scale.setScalar(1);
+      this.deathT = -1;
+      this.spawnT = 0.35;
+    } else if (wasAlive && !this.alive) {
+      this.deathT = 0;
     }
     this.tag.draw(this.hp / this.maxHp);
   }
@@ -189,7 +210,15 @@ class Ghost {
   }
 
   update(dt) {
-    if (!this.hasSample || !this.alive) return;
+    if (!this.alive) {
+      if (this.hasSample && this.mesh.visible && this.deathT >= 0) {
+        this.deathT += dt;
+        avatarDeathAnim(this, dt);
+        if (this.deathT > 0.55) this.mesh.visible = false;
+      }
+      return;
+    }
+    if (!this.hasSample) return;
     const st = this._interp();
     if (!st) return;
     this.body.pos.set(st.x, st.y, st.z);
@@ -209,6 +238,7 @@ class Ghost {
 
   showShot(wpn, end) {
     this.fireVisT = 0.35;
+    this.recT = 0.12;
     this.flash.visible = true;
     this.flashT = 0.05;
     const eye = new THREE.Vector3(this.body.pos.x, this.body.pos.y + 1.5, this.body.pos.z);

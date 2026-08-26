@@ -484,12 +484,12 @@ Game.prototype.beginMatchHost = function () {
   this.player = new Player(this, sel.clsKey);
   this.player.name = sel.name;
   this.player.id = 0;
-  this.entMeta[0] = { name: this.player.name, hex: this.player.cls.hex, lvl: Account.loggedIn ? Account.level : 0 };
+  this.entMeta[0] = { name: this.player.name, hex: this.player.cls.hex, lvl: Account.loggedIn ? Account.level : 0, clsKey: this.player.clsKey };
   for (const r of this.roster) {
     if (r.pid === this.net.selfId) continue;
     const np = new NetPlayer(this, r.id, r.name, r.cls, r.pid, r.lvl);
     this.remote.push(np);
-    this.entMeta[r.id] = { name: r.name, hex: np.colorHex, lvl: r.lvl || 0 };
+    this.entMeta[r.id] = { name: r.name, hex: np.colorHex, lvl: r.lvl || 0, clsKey: r.cls };
   }
   let maxId = 0;
   for (const r of this.roster) maxId = Math.max(maxId, r.id);
@@ -501,11 +501,11 @@ Game.prototype.beginMatchHost = function () {
   this.botMeta = [];
   for (let i = 0; i < nBots; i++) {
     const bid = ++maxId;
-    this.botMeta.push({ id: bid, name: names[i], hex: cols[i] });
     const b = new Bot(this, names[i], cols[i], this.cfg.diff);
     b.id = bid;
+    this.botMeta.push({ id: bid, name: names[i], hex: cols[i], cls: b.clsKey });
     this.bots.push(b);
-    this.entMeta[bid] = { name: names[i], hex: cols[i], lvl: 0 };
+    this.entMeta[bid] = { name: names[i], hex: cols[i], lvl: 0, clsKey: b.clsKey };
   }
   this.pickups = new Pickups(this);
   this.netSend('start', { limit: this.cfg.limit, diff: this.cfg.diff, roster: this._rosterMsg(), bots: this.botMeta });
@@ -524,13 +524,13 @@ Game.prototype.beginMatchClient = function (pl) {
   this.player.id = this.myId;
   const myLvl = me ? (me.lvl || 0) : (Account.loggedIn ? Account.level : 0);
   if (Account.loggedIn && me) Account.level = myLvl;
-  this.entMeta[this.myId] = { name: this.player.name, hex: this.player.cls.hex, lvl: myLvl };
+  this.entMeta[this.myId] = { name: this.player.name, hex: this.player.cls.hex, lvl: myLvl, clsKey: this.player.clsKey };
   for (const r of this.roster) {
     if (r.pid === this.net.selfId) continue;
     const clsDef = CLASS_DEFS[r.cls];
-    this.entMeta[r.id] = { name: r.name, hex: clsDef ? clsDef.hex : 0xffffff, lvl: r.lvl || 0 };
+    this.entMeta[r.id] = { name: r.name, hex: clsDef ? clsDef.hex : 0xffffff, lvl: r.lvl || 0, clsKey: r.cls };
   }
-  for (const bm of this.botMeta) this.entMeta[bm.id] = { name: bm.name, hex: bm.hex, lvl: bm.lvl || 0 };
+  for (const bm of this.botMeta) this.entMeta[bm.id] = { name: bm.name, hex: bm.hex, lvl: bm.lvl || 0, clsKey: bm.cls || 'assault' };
   this.pickups = new Pickups(this);
   this.lastOwnHp = this.player.hp;
   this._commonStart();
@@ -543,7 +543,7 @@ Game.prototype._rosterMsg = function () {
 Game.prototype.ensureRemote = function (id) {
   for (const r of this.remote) if (r.id === id) return r;
   const meta = this.entMeta[id];
-  const g = new Ghost(this, id, meta ? meta.name : '???', meta ? meta.hex : 0xffffff, meta ? meta.lvl : 0);
+  const g = new Ghost(this, id, meta ? meta.name : '???', meta ? meta.hex : 0xffffff, meta ? meta.lvl : 0, meta ? meta.clsKey : 'assault');
   this.remote.push(g);
   return g;
 };
@@ -635,6 +635,7 @@ Game.prototype.sendInput = function () {
     cr: p.crouchAmt > 0.5 ? 1 : 0,
     pt: Math.round(p.pitch * 100) / 100,
     ads: p.adsAmt > 0.5 ? 1 : 0,
+    d: p.dashT > 0 ? 1 : 0,
     w: SLOT_ORDER.indexOf(p.cur)
   });
 };
@@ -847,7 +848,7 @@ Game.prototype.setupNetHandlers = function () {
       if (this.state !== 'menu' && !this.remote.find(r => r.peerId === pid)) {
         const np = new NetPlayer(this, row.id, row.name, row.cls, pid, row.lvl);
         this.remote.push(np);
-        this.entMeta[row.id] = { name: row.name, hex: np.colorHex, lvl: row.lvl || 0 };
+        this.entMeta[row.id] = { name: row.name, hex: np.colorHex, lvl: row.lvl || 0, clsKey: row.cls };
         this.hud.subAnnounce(row.name + ' JOINED');
       }
     } else {
