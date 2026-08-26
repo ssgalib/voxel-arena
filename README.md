@@ -9,6 +9,8 @@ A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https
 ## Features
 
 - **Online multiplayer** — peer-to-peer over WebRTC (no game server): host a private match and share the 5-char code; up to 7 players plus bot fill
+- **Public matchmaking** — DEPLOY drops you straight into a live public match (least elapsed first, hosted P2P via a public lobby room); hosts fill with bots, mid-match joins welcome
+- **Timed matches** — 10:00 countdown in the HUD; if nobody reaches the kill limit, the clock ends the match and shows the leaderboard
 - **Positional voice chat** — push-to-talk (hold V) over the same P2P WebRTC connections; voices fade and pan with the speaker's position, works in the lobby too; a green dot flashes on the nametag of whoever is talking
 - **Accounts & levels** — optional accounts with unique name + password; earn XP for kills and wins, level up, and your name literally catches fire
 - **Burning names** — the higher your level, the fiercer your nametag flames (ember glow → flame tongues → blue-hot inferno at L25+), in-game and in the kill feed/scoreboard
@@ -64,10 +66,15 @@ Endpoints: `POST /api/register`, `POST /api/login`, `POST /api/logout`,
 
 ## Multiplayer
 
-Click **MULTIPLAYER — HOST / JOIN** in the menu:
+Click **MULTIPLAYER — HOST / JOIN** in the menu for private matches:
 
 - **Host**: creates a private match and shows a room code (e.g. `X7K2M`). Share it; joined players appear in the lobby. Press START when ready.
 - **Join**: enter a code and wait for the host to start.
+
+**DEPLOY** plays instantly: it searches public matches (via a shared lobby room) and
+drops you into the one with the least time elapsed — or hosts a fresh match filled
+with bots if none exist. Late joiners land mid-match; the timer keeps running.
+Private rooms still reject mid-match joins; public ones accept them.
 
 How it works:
 
@@ -108,6 +115,7 @@ js/bot.js           bot AI, names, difficulty tiers
 js/avatar.js        shared character mesh + nametag builder (flames by level)
 js/netplayer.js     networked entities (host-side avatar, client-side ghost)
 js/net.js           trystero room/protocol adapter
+js/mm.js            public matchmaking lobby (announce / least-elapsed join)
 js/world.js         arena geometry, colliders, nav points, spawns
 js/weapons.js       weapon stats + blocky viewmodels
 js/pickups.js       health / grenade / quad pickups

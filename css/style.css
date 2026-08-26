@@ -124,7 +124,7 @@ h2{font-size:34px;font-weight:900;letter-spacing:4px;font-style:italic;margin-bo
 #dmglayer span.crit{color:#ffd23e;font-size:21px}
 #dmglayer span.kill{color:#ff4747;font-size:19px}
 
-#killfeed{position:absolute;top:18px;left:18px;display:flex;flex-direction:column;gap:5px}
+#killfeed{position:absolute;top:64px;left:18px;display:flex;flex-direction:column;gap:5px}
 .kf{
   background:rgba(8,12,18,.72);border-left:3px solid var(--acc);padding:5px 11px;border-radius:5px;
   font-size:12.5px;font-weight:600;letter-spacing:.4px;animation:kfin .18s ease-out;
@@ -143,6 +143,12 @@ h2{font-size:34px;font-weight:900;letter-spacing:4px;font-style:italic;margin-bo
 #subann.show{opacity:.92}
 
 #fpsmeter{position:absolute;top:12px;right:14px;font-size:11px;color:rgba(255,255,255,.4);letter-spacing:1px}
+
+#matchtimer{
+  position:absolute;top:14px;left:18px;font-size:26px;font-weight:900;letter-spacing:2px;
+  color:#e8edf2;text-shadow:0 2px 8px #000;font-variant-numeric:tabular-nums;
+}
+#matchtimer.low{color:#ff5d3e;animation:pulse2 1s infinite}
 
 #voicewrap{position:absolute;top:34px;right:14px;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
 #voicechip{

@@ -37,6 +37,8 @@ function Game() {
   this.snapT = 0;
   this.inputT = 0;
   this.projSeq = 0;
+  this.matchT = 0;
+  this.publicRoom = false;
 
   this.initGL();
   this.sfx = new Sfx();
@@ -138,6 +140,7 @@ Game.prototype.hurt = function (ent, amount, src, isHead, wpn) {
 };
 
 const WPN_LABEL = { rifle: 'AR', shotgun: 'SHOTGUN', sniper: 'SNIPER', rpg: 'ROCKET', grenade: 'GRENADE' };
+const TIME_LIMIT = 600;
 
 Game.prototype.registerKill = function (src, victim, isHead, wpn) {
   if (src && src !== victim) src.score.k++;
@@ -435,6 +438,8 @@ Game.prototype._commonStart = function () {
   this.snapT = 0;
   this.inputT = 0;
   this.reportedEnd = false;
+  this.matchT = 0;
+  this.hud.timer(TIME_LIMIT);
   this.player.lvl = Account.loggedIn ? Account.level : 0;
   if (Account.pendingAnnounce) {
     this.hud.subAnnounce(Account.pendingAnnounce);
@@ -505,6 +510,7 @@ Game.prototype.beginMatchHost = function () {
   this.pickups = new Pickups(this);
   this.netSend('start', { limit: this.cfg.limit, diff: this.cfg.diff, roster: this._rosterMsg(), bots: this.botMeta });
   this._commonStart();
+  if (this.publicRoom) Matchmaker.announceStart(this.roomCode);
 };
 
 Game.prototype.beginMatchClient = function (pl) {
@@ -569,13 +575,14 @@ Game.prototype.sendSnap = function () {
   for (const r of this.remote) ps.push(enc(r));
   const bs = [];
   for (const b of this.bots) bs.push(enc(b));
-  this.netSend('snap', { p: ps, b: bs });
+  this.netSend('snap', { p: ps, b: bs, t: Math.max(0, TIME_LIMIT - this.matchT) });
 };
 
 Game.prototype.applySnap = function (s) {
   if (!this.player || (this.state !== 'playing' && this.state !== 'paused')) return;
   for (const e of s.p) this._applyEntState(e);
   for (const e of s.b) this._applyEntState(e);
+  if (typeof s.t === 'number') this.hud.timer(s.t);
 };
 
 Game.prototype._applyEntState = function (e) {
@@ -632,6 +639,58 @@ Game.prototype.sendInput = function () {
   });
 };
 
+Game.prototype.startPublic = async function () {
+  if (this.net) return;
+  const sel = this._readMenuCfg();
+  const btn = U.el('playBtn');
+  btn.textContent = 'FINDING MATCH...';
+  btn.disabled = true;
+  const res = await Matchmaker.deploy(this, sel);
+  btn.textContent = 'DEPLOY';
+  btn.disabled = false;
+  if (res.action === 'join') this.mpJoinPublic(res.code, sel);
+  else if (res.action === 'host') this.mpHostPublic(sel);
+  else this.startMatch();
+};
+
+Game.prototype.mpHostPublic = function (sel) {
+  (async () => {
+    const code = makeRoomCode(5);
+    const net = new Net();
+    try { await net.connect('host', code); } catch (e) { this.startMatch(); return; }
+    this.net = net;
+    this.netRole = 'host';
+    this.publicRoom = true;
+    this.roomCode = code;
+    this.hostNextId = 1;
+    this.roster = [{ pid: net.selfId, id: 0, name: sel.name, cls: sel.clsKey, lvl: Account.loggedIn ? Account.level : 0 }];
+    this.setupNetHandlers();
+    this.voice.start();
+    this.beginMatchHost();
+    Matchmaker.announceStart(this.roomCode);
+  })();
+};
+
+Game.prototype.mpJoinPublic = function (code, sel) {
+  (async () => {
+    const net = new Net();
+    try { await net.connect('client', code); } catch (e) { this.startMatch(); return; }
+    this.net = net;
+    this.netRole = 'client';
+    this.publicRoom = true;
+    this.roomCode = code;
+    this.setupNetHandlers();
+    this.voice.start();
+    net.send('hello', { n: sel.name, c: sel.clsKey, l: Account.loggedIn ? Account.level : 0 });
+    this.joinTimeout = setTimeout(() => {
+      if (this.state === 'menu' && !this.roster.length) {
+        this._teardownNet();
+        this.startMatch();
+      }
+    }, 15000);
+  })();
+};
+
 Game.prototype.mpHost = async function () {
   if (this.net) return;
   const sel = this._readMenuCfg();
@@ -685,6 +744,8 @@ Game.prototype.mpJoin = async function () {
 
 Game.prototype._teardownNet = function () {
   this.voice.stop();
+  this.publicRoom = false;
+  Matchmaker.close();
   if (this.net) { this.net.leave(); this.net = null; }
   this.netRole = 'off';
   this.roster = [];
@@ -777,12 +838,18 @@ Game.prototype.setupNetHandlers = function () {
 
   net.on('hello', (h, pid) => {
     if (this.netRole !== 'host') return;
-    if (this.state !== 'menu') { net.send('deny', { r: 'MATCH ALREADY RUNNING' }, pid); return; }
+    if (this.state !== 'menu' && !(this.publicRoom && (this.state === 'playing' || this.state === 'paused'))) { net.send('deny', { r: 'MATCH ALREADY RUNNING' }, pid); return; }
     if (this.roster.length >= 8) { net.send('deny', { r: 'LOBBY FULL' }, pid); return; }
     let row = this.roster.find(r => r.pid === pid);
     if (!row) {
       row = { pid: pid, id: this.hostNextId++, name: ('' + (h.n || 'PLAYER')).toUpperCase().slice(0, 14), cls: CLASS_DEFS[h.c] ? h.c : 'assault', lvl: Math.max(0, Math.min(999, parseInt(h.l, 10) || 0)) };
       this.roster.push(row);
+      if (this.state !== 'menu' && !this.remote.find(r => r.peerId === pid)) {
+        const np = new NetPlayer(this, row.id, row.name, row.cls, pid, row.lvl);
+        this.remote.push(np);
+        this.entMeta[row.id] = { name: row.name, hex: np.colorHex, lvl: row.lvl || 0 };
+        this.hud.subAnnounce(row.name + ' JOINED');
+      }
     } else {
       row.name = ('' + (h.n || row.name)).toUpperCase().slice(0, 14);
       row.cls = CLASS_DEFS[h.c] ? h.c : row.cls;
@@ -790,6 +857,7 @@ Game.prototype.setupNetHandlers = function () {
     }
     this.netSend('roster', this._rosterMsg());
     this.updateLobbyUI();
+    this.netSend('start', { limit: this.cfg.limit, diff: this.cfg.diff, roster: this._rosterMsg(), bots: this.botMeta }, pid);
     this.sfx.play('ui');
   });
 
@@ -907,7 +975,7 @@ Game.prototype._reportMatchResult = function (won) {
   Account.reportMatch(this.player.score.k, won);
 };
 
-Game.prototype.endMatch = function (winner) {
+Game.prototype.endMatch = function (winner, timed) {
   this.state = 'end';
   document.exitPointerLock();
   this.resetHeldInputs();
@@ -923,11 +991,13 @@ Game.prototype.endMatch = function (winner) {
     this.netSend('end', {
       rows: list.map(e => [e.id !== undefined ? e.id : -1, e.score.k, e.score.d]),
       win: winner && winner.id !== undefined ? winner.id : -1,
-      wn: winner ? winner.name : '?'
+      wn: winner ? winner.name : '?',
+      tm: timed ? 1 : 0
     });
   }
   this._reportMatchResult(!!winner.isPlayer);
-  this.hud.endScreen(rows, winner.isPlayer ? 'VICTORY' : winner.name + ' WINS', !!winner.isPlayer);
+  const title = timed ? 'TIME UP' : (winner.isPlayer ? 'VICTORY' : winner.name + ' WINS');
+  this.hud.endScreen(rows, title, !!winner.isPlayer);
   U.el('rematchBtn').classList.toggle('hidden', this.netRole === 'client');
   U.el('endWait').classList.toggle('hidden', this.netRole !== 'client');
   U.el('end').classList.remove('hidden');
@@ -946,7 +1016,8 @@ Game.prototype.showEndRemote = function (m) {
     return { name: meta.name, col: meta.col, k: r[1], d: r[2], me: r[0] === this.myId, lvl: meta.lvl || 0 };
   }).sort((a, b) => b.k - a.k || a.d - b.d);
   this._reportMatchResult(m.win === this.myId);
-  this.hud.endScreen(rows, m.win === this.myId ? 'VICTORY' : m.wn + ' WINS', m.win === this.myId);
+  const title = m.tm ? 'TIME UP' : (m.win === this.myId ? 'VICTORY' : m.wn + ' WINS');
+  this.hud.endScreen(rows, title, m.win === this.myId);
   U.el('rematchBtn').classList.add('hidden');
   U.el('endWait').classList.remove('hidden');
   U.el('end').classList.remove('hidden');
@@ -983,7 +1054,7 @@ Game.prototype.quitToMenu = function () {
 
 Game.prototype.bindUI = function () {
   const self = this;
-  U.el('playBtn').onclick = () => { self.sfx.ensure(); self.sfx.play('ui'); self.startMatch(); };
+  U.el('playBtn').onclick = () => { self.sfx.ensure(); self.sfx.play('ui'); self.startPublic(); };
   U.el('resumeBtn').onclick = () => { self.sfx.play('ui'); const pl = self.canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(() => {}); };
   U.el('quitBtn').onclick = () => { self.sfx.play('ui'); self.quitToMenu(); };
   U.el('rematchBtn').onclick = () => {
@@ -1167,6 +1238,13 @@ Game.prototype.loop = function () {
     const live = st === 'playing';
     const p = this.player;
     if (live) p.update(dt);
+    if (live || (st === 'paused' && this.netRole !== 'off')) {
+      this.matchT += dt;
+      if (live && this.matchT >= TIME_LIMIT && this.netRole !== 'client') {
+        const list = this.combatants().slice().sort((a, b) => b.score.k - a.score.k || a.score.d - b.score.d);
+        this.endMatch(list[0], true);
+      }
+    }
 
     if (this.netRole === 'off') {
       for (const b of this.bots) b.update(dt);
@@ -1218,8 +1296,9 @@ Game.prototype.loop = function () {
     const gap = 5 + hsp * 0.7 + (p.body.grounded ? 0 : 7) + p.vmKick * 16 + (def.pellets ? 8 : 0);
     this.hud.crosshair(gap.toFixed(1));
 
-    this.hud.health(p.hp, p.maxHp);
-    this.hud.ammo(p.ammo[p.cur], def, !!p.reloading);
+this.hud.health(p.hp, p.maxHp);
+      this.hud.ammo(p.ammo[p.cur], def, !!p.reloading);
+      if (this.netRole !== 'client') this.hud.timer(Math.max(0, TIME_LIMIT - this.matchT));
     this.hud.slots(SLOT_ORDER.indexOf(p.cur));
     this.hud.grenades(p.grenades);
     this.hud.dash(1 - U.clamp(p.dashCd / (1.25 * p.cls.dash), 0, 1));

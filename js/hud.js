@@ -23,6 +23,7 @@ class HUD {
     this.radarCv = U.el('radar');
     this.rctx = this.radarCv.getContext('2d');
     this.fpsEl = U.el('fpsmeter');
+    this.timerEl = U.el('matchtimer');
     this.protip = U.el('protip');
     this.voiceChipEl = U.el('voicechip');
     this.talkersEl = U.el('talkers');
@@ -202,6 +203,15 @@ class HUD {
 
   fps(v) {
     if (this._set('fps', v)) this.fpsEl.textContent = v + ' FPS';
+  }
+
+  timer(sec) {
+    sec = Math.max(0, Math.ceil(sec));
+    if (this._set('t', sec)) {
+      const m = Math.floor(sec / 60), s = sec % 60;
+      this.timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+      this.timerEl.classList.toggle('low', sec <= 60);
+    }
   }
 
   voice(v, enabled) {

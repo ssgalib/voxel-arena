@@ -5,7 +5,7 @@
 <title>VOXEL ARENA — fast voxel FPS</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b0e13'/%3E%3Crect x='2' y='2' width='12' height='12' fill='%23c6ff37'/%3E%3Crect x='5' y='5' width='6' height='6' fill='%230b0e13'/%3E%3Crect x='7' y='2' width='2' height='12' fill='%23c6ff37'/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -21,6 +21,7 @@
   <div id="announce"></div>
   <div id="subann"></div>
   <div id="fpsmeter"></div>
+  <div id="matchtimer">10:00</div>
   <div id="voicewrap">
     <div id="voicechip"></div>
     <div id="talkers"></div>
@@ -181,21 +182,22 @@
 </div>
 
 <script src="vendor/three.min.js"></script>
-<script src="js/util.js?v=3"></script>
-<script src="js/account.js?v=3"></script>
-<script src="js/audio.js?v=3"></script>
-<script src="js/world.js?v=3"></script>
-<script src="js/effects.js?v=3"></script>
-<script src="js/weapons.js?v=3"></script>
-<script src="js/pickups.js?v=3"></script>
-<script src="js/avatar.js?v=3"></script>
-<script src="js/bot.js?v=3"></script>
-<script src="js/netplayer.js?v=3"></script>
-<script src="js/net.js?v=3"></script>
-<script src="js/voice.js?v=3"></script>
-<script src="js/player.js?v=3"></script>
-<script src="js/hud.js?v=3"></script>
-<script src="js/main.js?v=3"></script>
+<script src="js/util.js?v=4"></script>
+<script src="js/account.js?v=4"></script>
+<script src="js/audio.js?v=4"></script>
+<script src="js/world.js?v=4"></script>
+<script src="js/effects.js?v=4"></script>
+<script src="js/weapons.js?v=4"></script>
+<script src="js/pickups.js?v=4"></script>
+<script src="js/avatar.js?v=4"></script>
+<script src="js/bot.js?v=4"></script>
+<script src="js/netplayer.js?v=4"></script>
+<script src="js/net.js?v=4"></script>
+<script src="js/mm.js?v=4"></script>
+<script src="js/voice.js?v=4"></script>
+<script src="js/player.js?v=4"></script>
+<script src="js/hud.js?v=4"></script>
+<script src="js/main.js?v=4"></script>
 <script type="module">
   window.loadTrystero = () =>
     import('./vendor/trystero.js').catch(() => import('https://esm.sh/trystero@0.25.3'));
