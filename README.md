@@ -1,5 +1,7 @@
 # VOXEL ARENA
 
+**[PLAY NOW — voxel.kurohane.xyz](https://voxel.kurohane.xyz)**
+
 A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https://poxel.io), built from scratch with vanilla JavaScript and [three.js](https://threejs.org). No build step, no dependencies, no server — just open it and play.
 
 > Fan-made tribute. Not affiliated with poxel.io.
