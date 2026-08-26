@@ -1,7 +1,7 @@
 const NET_APP_ID = 'poxel-clone-mp-v1';
 const NET_ACTIONS = [
   'hello', 'roster', 'start', 'deny',
-  'input', 'snap', 'shot', 'proj', 'boom',
+  'input', 'snap', 'shot', 'bshot', 'proj', 'boom',
   'feed', 'died', 'kb', 'pick', 'end'
 ];
 const NET_CODE_CHARS = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';

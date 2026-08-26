@@ -18,6 +18,7 @@ A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https
 - **Movement tech**: bunny-hop friendly jumping, dash (Q), rocket jumping, grenade cooking, sprint & crouch
 - **Pickups**: health packs and grenade restocks around the map; quad damage contested at the center platform
 - **Full FPS toolkit**: ADS, headshot multipliers, reloads, hitmarkers, kill feed, multi-kill announcements
+- **Expressive avatars** — remote players and bots visibly aim, track targets up/down, crouch, and fire with muzzle flash + tracers
 - **HUD**: dynamic crosshair, radar minimap, live scoreboard (hold Tab), FPS meter, damage vignettes
 - Procedurally built arena — central platform, corner towers, containers, crates, drifting clouds
 - All sound effects synthesized at runtime with WebAudio — zero asset downloads

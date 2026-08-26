@@ -543,14 +543,27 @@ Game.prototype.ensureRemote = function (id) {
 };
 
 Game.prototype.sendSnap = function () {
-  const enc = e => [
-    e.id !== undefined ? e.id : -1,
-    rnd2(e.body.pos.x), rnd2(e.body.pos.y), rnd2(e.body.pos.z),
-    e.mesh ? Math.round(e.mesh.rotation.y * 100) / 100 : 0,
-    Math.round(e.hp), e.score.k | 0, e.score.d | 0,
-    e.alive ? 1 : 0,
-    Math.round(Math.max(0, e.alive ? 0 : (e.respawnT || 0)) * 10)
-  ];
+  const enc = e => {
+    let pitch = 0, ads = 0, cr = 0, w = 0;
+    if (e.isPlayer) {
+      pitch = e.pitch; ads = e.adsAmt > 0.5 ? 1 : 0; cr = e.crouchAmt > 0.5 ? 1 : 0; w = SLOT_ORDER.indexOf(e.cur);
+    } else if (e.netPitch !== undefined) {
+      pitch = e.netPitch; ads = e.netAds ? 1 : 0; cr = e.netCr ? 1 : 0;
+    } else {
+      pitch = e.aimPitch || 0; ads = e.state === 'engage' ? 1 : 0;
+    }
+    return [
+      e.id !== undefined ? e.id : -1,
+      rnd2(e.body.pos.x), rnd2(e.body.pos.y), rnd2(e.body.pos.z),
+      e.mesh ? Math.round(e.mesh.rotation.y * 100) / 100 : 0,
+      Math.round(e.hp), e.score.k | 0, e.score.d | 0,
+      e.alive ? 1 : 0,
+      Math.round(Math.max(0, e.alive ? 0 : (e.respawnT || 0)) * 10),
+      Math.round(pitch * 100) / 100,
+      ads | (cr ? 2 : 0),
+      w
+    ];
+  };
   const ps = [];
   if (this.player) ps.push(enc(this.player));
   for (const r of this.remote) ps.push(enc(r));
@@ -574,7 +587,7 @@ Game.prototype._applyEntState = function (e) {
   let g = null;
   for (const r of this.remote) if (r.id === id) { g = r; break; }
   if (!g) g = this.ensureRemote(id);
-  g.applyState({ x: e[1], y: e[2], z: e[3], yaw: e[4], hp: e[5], k: e[6], d: e[7], a: e[8], rt: e[9] / 10 });
+  g.applyState({ x: e[1], y: e[2], z: e[3], yaw: e[4], hp: e[5], k: e[6], d: e[7], a: e[8], rt: e[9] / 10, pitch: e[10] || 0, ads: !!(e[11] & 1), cr: !!(e[11] & 2), w: (e[12] || 0) });
 };
 
 Game.prototype.applySelfState = function (e) {
@@ -612,7 +625,10 @@ Game.prototype.sendInput = function () {
     x: rnd2(p.body.pos.x), y: rnd2(p.body.pos.y), z: rnd2(p.body.pos.z),
     vx: rnd2(p.body.vel.x), vy: rnd2(p.body.vel.y), vz: rnd2(p.body.vel.z),
     yaw: Math.round(p.yaw * 1000) / 1000,
-    cr: p.crouchAmt > 0.5 ? 1 : 0
+    cr: p.crouchAmt > 0.5 ? 1 : 0,
+    pt: Math.round(p.pitch * 100) / 100,
+    ads: p.adsAmt > 0.5 ? 1 : 0,
+    w: SLOT_ORDER.indexOf(p.cur)
   });
 };
 
@@ -833,9 +849,16 @@ Game.prototype.setupNetHandlers = function () {
         if (victim && victim.alive && victim !== np) this.hurt(victim, m.d, np, !!m.hs, m.w);
       }
     } else {
-      const g = this.remote.find(r => r.id === m.sid);
-      if (g) g.showShot(m.w, end);
+      if (m.sid === undefined || m.sid < 0) return;
+      const g = this.ensureRemote(m.sid);
+      if (g && g.alive) g.showShot(m.w, end);
     }
+  });
+
+  net.on('bshot', m => {
+    if (this.netRole !== 'client') return;
+    const g = this.ensureRemote(m.id);
+    if (g && g.alive) g.showShot('rifle', new THREE.Vector3(m.e[0], m.e[1], m.e[2]));
   });
 
   net.on('proj', m => {

@@ -51,6 +51,10 @@ class Bot {
     this.legR = a.legR;
     this.armL = a.armL;
     this.armR = a.armR;
+    this.torso = a.torso;
+    this.head = a.head;
+    this.visor = a.visor;
+    this.gun = a.gun;
     this.muzzleTip = a.muzzleTip;
     this.flash = a.flash;
     this.tag = a.tag;
@@ -189,6 +193,7 @@ class Bot {
       const tp = this.target.body ? this.target.body.pos : this.target.eyePos(new THREE.Vector3());
       const dx = tp.x - myPos.x, dz = tp.z - myPos.z;
       const d = Math.sqrt(dx * dx + dz * dz) || 0.001;
+      this.aimPitch = Math.atan2((tp.y + 1.25) - (myPos.y + 1.4), d);
       this.strafeT -= dt;
       if (this.strafeT <= 0) { this.strafeDir *= -1; this.strafeT = U.rand(0.7, 1.6); }
       let fwd = 0;
@@ -202,6 +207,7 @@ class Bot {
       this.fireControl(dt, d);
     } else {
       this.body.vel.x *= 0.8; this.body.vel.z *= 0.8;
+      this.aimPitch = U.damp(this.aimPitch || 0, 0, 4, dt);
     }
 
     this.kb.multiplyScalar(Math.exp(-5 * dt));
@@ -219,7 +225,7 @@ class Bot {
     }
 
     const hsp = Math.sqrt(this.body.vel.x ** 2 + this.body.vel.z ** 2);
-    animateAvatar(this, hsp, dt, this.state === 'engage');
+    animateAvatar(this, hsp, dt, this.state === 'engage', this.aimPitch || 0, 0);
 
     let yaw = this.mesh.rotation.y;
     let wantYaw = yaw;
@@ -286,6 +292,7 @@ class Bot {
       this.game.effects.impact(end, false);
     }
     this.game.effects.tracer(muzzleW, end, 0xffb46a);
+    if (this.game.isNetHost) this.game.netSend('bshot', { id: this.id, e: [rnd2(end.x), rnd2(end.y), rnd2(end.z)] });
   }
 
   dispose() {

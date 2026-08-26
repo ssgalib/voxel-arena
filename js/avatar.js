@@ -143,8 +143,8 @@ function buildCharacterMesh(name, colorHex, level) {
   gun.add(barrel);
   g.add(gun);
   const muzzleTip = new THREE.Object3D();
-  muzzleTip.position.set(0.3, 1.35, 0.86);
-  g.add(muzzleTip);
+  muzzleTip.position.set(0, 0.03, 0.68);
+  gun.add(muzzleTip);
   const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
   flash.scale.setScalar(0.45);
   flash.visible = false;
@@ -152,16 +152,30 @@ function buildCharacterMesh(name, colorHex, level) {
   const tag = makeNameTag(name, c, level || 0);
   tag.sprite.position.y = 2.72;
   g.add(tag.sprite);
-  return { group: g, legL, legR, armL, armR, muzzleTip, flash, tag };
+  return { group: g, legL, legR, armL, armR, torso, head, visor, gun, muzzleTip, flash, tag };
 }
 
-function animateAvatar(av, hsp, dt, aiming) {
+function animateAvatar(av, hsp, dt, aiming, pitch, crouch) {
   av.animPhase = (av.animPhase || 0) + hsp * dt * 1.6;
-  const swing = Math.min(hsp / 6, 1) * 0.6;
+  av.aimAmt = U.damp(av.aimAmt || 0, aiming ? 1 : 0, 12, dt);
+  const a = av.aimAmt;
+  const p = U.clamp(pitch || 0, -1.53, 1.53);
+  const c = U.clamp(crouch || 0, 0, 1);
+  const swing = Math.min(hsp / 6, 1) * 0.6 * (1 - a * 0.7);
   const s = Math.sin(av.animPhase * 3.2);
   av.legL.rotation.x = s * swing;
   av.legR.rotation.x = -s * swing;
+  av.legL.scale.y = av.legR.scale.y = 1 - 0.3 * c;
+  if (av.torso) {
+    av.torso.position.y = 1.21 - 0.28 * c;
+    av.head.position.y = 1.83 - 0.42 * c;
+    av.visor.position.y = 1.87 - 0.42 * c;
+    av.gun.position.y = 1.32 - 0.35 * c;
+    av.tag.sprite.position.y = 2.72 - 0.42 * c;
+  }
   av.armL.rotation.x = -s * swing * 0.7;
-  av.armR.rotation.x = aiming ? -1.3 : s * swing * 0.7 - 0.25;
+  av.armR.rotation.x = U.lerp(s * swing * 0.7 - 0.25, -1.3 - p * 0.55, a);
+  av.gun.rotation.x = -p * (0.3 + 0.7 * a);
+  av.gun.position.z = 0.18 + a * 0.06;
   if (av.tag && av.tag.tick) av.tag.tick(performance.now());
 }

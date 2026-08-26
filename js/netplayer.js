@@ -16,6 +16,11 @@ class NetPlayer extends Bot {
     this.lastInputAt = performance.now();
     this.fireVisT = 0;
     this.netYaw = this.mesh.rotation.y;
+    this.netPitch = 0;
+    this.netAds = false;
+    this.netCr = 0;
+    this.pitchS = 0;
+    this.crS = 0;
     this.state = 'idle';
   }
 
@@ -28,6 +33,9 @@ class NetPlayer extends Bot {
     if (hsp > maxSp) { const f = maxSp / hsp; b.vel.x *= f; b.vel.z *= f; }
     if (m.crouch) b.h = 1.4; else b.h = 1.95;
     this.netYawTarget = m.yaw;
+    this.netPitch = U.clamp(parseFloat(m.pt) || 0, -1.53, 1.53);
+    this.netAds = !!m.ads;
+    this.netCr = m.cr ? 1 : 0;
     if (!this.alive) return;
     b.pos.set(m.x, Math.max(m.y, -2), m.z);
   }
@@ -64,7 +72,9 @@ class NetPlayer extends Bot {
     if (stale) { this.body.vel.x *= 0.9; this.body.vel.z *= 0.9; }
 
     const hsp = Math.sqrt(this.body.vel.x ** 2 + this.body.vel.z ** 2);
-    animateAvatar(this, hsp, dt, this.fireVisT > 0);
+    this.pitchS = U.damp(this.pitchS, this.netPitch, 14, dt);
+    this.crS = U.damp(this.crS, this.netCr, 10, dt);
+    animateAvatar(this, hsp, dt, this.fireVisT > 0 || this.netAds, this.pitchS, this.crS);
 
     let d = (this.netYawTarget !== undefined ? this.netYawTarget : this.netYaw) - this.netYaw;
     while (d > Math.PI) d -= Math.PI * 2;
@@ -103,12 +113,19 @@ class Ghost {
     this.body = { pos: new THREE.Vector3(), r: 0.42, h: 2.05, vel: new THREE.Vector3(), grounded: false };
     this.animPhase = 0;
     this.flashT = 0;
+    this.fireVisT = 0;
     this.samples = [];
     this.hasSample = false;
     const a = buildCharacterMesh(this.name, colorHex, this.lvl);
     this.legL = a.legL; this.legR = a.legR; this.armL = a.armL; this.armR = a.armR;
+    this.torso = a.torso; this.head = a.head; this.visor = a.visor; this.gun = a.gun;
     this.muzzleTip = a.muzzleTip; this.flash = a.flash; this.tag = a.tag;
     this.mesh = a.group;
+    this.tPitch = 0;
+    this.tAds = false;
+    this.tCr = 0;
+    this.pitchS = 0;
+    this.crS = 0;
     a.group.visible = false;
     this.game.scene.add(a.group);
   }
@@ -127,6 +144,9 @@ class Ghost {
     this.samples.push({ t: performance.now(), x: e.x, y: e.y, z: e.z, yaw: e.yaw });
     if (this.samples.length > 30) this.samples.shift();
     this.hasSample = true;
+    this.tPitch = e.pitch || 0;
+    this.tAds = !!e.ads;
+    this.tCr = e.cr ? 1 : 0;
     const wasAlive = this.alive;
     this.alive = !!e.a;
     this.hp = e.hp;
@@ -164,8 +184,11 @@ class Ghost {
     const st = this._interp();
     if (!st) return;
     this.body.pos.set(st.x, st.y, st.z);
+    if (this.fireVisT > 0) this.fireVisT -= dt;
     const hsp = Math.min(Math.sqrt((st.vx || 0) ** 2 + (st.vz || 0) ** 2), 12);
-    animateAvatar(this, hsp, dt, false);
+    this.pitchS = U.damp(this.pitchS, this.tPitch, 14, dt);
+    this.crS = U.damp(this.crS, this.tCr, 10, dt);
+    animateAvatar(this, hsp, dt, this.tAds || this.fireVisT > 0, this.pitchS, this.crS);
     this.mesh.rotation.y = st.yaw;
     this.mesh.position.copy(this.body.pos);
     if (this.flashT > 0) {
@@ -175,6 +198,7 @@ class Ghost {
   }
 
   showShot(wpn, end) {
+    this.fireVisT = 0.35;
     this.flash.visible = true;
     this.flashT = 0.05;
     const eye = new THREE.Vector3(this.body.pos.x, this.body.pos.y + 1.5, this.body.pos.z);

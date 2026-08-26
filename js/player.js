@@ -330,6 +330,7 @@ class Player {
       }
       const end = origin.clone().addScaledVector(dir, bestT);
       g.effects.tracer(muzzleW, end, 0xfff3b0);
+      if (g.isNetHost) g.netSend('shot', { sid: 0, w: this.cur, h: -1, hs: 0, d: 0, e: [rnd2(end.x), rnd2(end.y), rnd2(end.z)] });
       if (hitEnt) {
         let dmg = def.dmg * (isHead ? def.head : 1);
         const fallStart = def.range * 0.45;
