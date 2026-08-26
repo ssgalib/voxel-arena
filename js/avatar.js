@@ -104,6 +104,46 @@ function makeNameTag(name, colorHex, level) {
   return api;
 }
 
+const GUNMETAL = 0x23272e, GUNMETAL2 = 0x3a4150, WOODG = 0x6e4a26;
+
+function abox(g, sx, sy, sz, x, y, z, col) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), new THREE.MeshLambertMaterial({ color: col }));
+  m.position.set(x, y, z);
+  g.add(m);
+  return m;
+}
+
+function buildAvatarGun(kind) {
+  const g = new THREE.Group();
+  if (kind === 'shotgun') {
+    abox(g, 0.1, 0.12, 0.5, 0, 0, 0.18, GUNMETAL);
+    abox(g, 0.042, 0.042, 0.34, -0.026, 0.02, -0.16, GUNMETAL2);
+    abox(g, 0.042, 0.042, 0.34, 0.026, 0.02, -0.16, GUNMETAL2);
+    abox(g, 0.085, 0.07, 0.16, 0, -0.03, -0.1, WOODG);
+    abox(g, 0.08, 0.11, 0.16, 0, -0.05, 0.36, WOODG);
+  } else if (kind === 'sniper') {
+    abox(g, 0.07, 0.1, 0.6, 0, 0, 0.1, GUNMETAL);
+    abox(g, 0.04, 0.04, 0.4, 0, 0.01, -0.32, GUNMETAL2);
+    abox(g, 0.05, 0.05, 0.18, 0, 0.09, 0.02, 0x1a1e24);
+    abox(g, 0.07, 0.12, 0.16, 0, -0.04, 0.32, WOODG);
+  } else if (kind === 'rpg') {
+    abox(g, 0.15, 0.15, 0.72, 0, 0.02, 0.05, 0x5c6b46);
+    abox(g, 0.19, 0.19, 0.14, 0, 0.02, -0.34, 0x49563a);
+    abox(g, 0.1, 0.1, 0.14, 0, 0.02, 0.44, 0x49563a);
+    abox(g, 0.06, 0.13, 0.08, 0, -0.1, 0.14, GUNMETAL2);
+  } else if (kind === 'pistol') {
+    abox(g, 0.055, 0.09, 0.2, 0, 0.02, -0.02, GUNMETAL);
+    abox(g, 0.05, 0.12, 0.07, 0, -0.07, 0.07, GUNMETAL2);
+  } else {
+    abox(g, 0.09, 0.12, 0.5, 0, 0, 0.08, GUNMETAL);
+    abox(g, 0.045, 0.045, 0.26, 0, 0.01, -0.28, GUNMETAL2);
+    abox(g, 0.06, 0.16, 0.1, 0, -0.11, 0.06, GUNMETAL2);
+    abox(g, 0.08, 0.09, 0.16, 0, -0.02, 0.3, WOODG);
+  }
+  g.visible = false;
+  return g;
+}
+
 function buildCharacterMesh(name, colorHex, level) {
   const c = colorHex;
   const dark = new THREE.Color(c).multiplyScalar(0.65).getHex();
@@ -136,11 +176,12 @@ function buildCharacterMesh(name, colorHex, level) {
   g.add(visor);
   const gun = new THREE.Group();
   gun.position.set(0.3, 1.32, 0.18);
-  const gm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.62), new THREE.MeshLambertMaterial({ color: 0x23272e }));
-  gun.add(gm);
-  const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.24), new THREE.MeshLambertMaterial({ color: 0x3a4150 }));
-  barrel.position.z = 0.42;
-  gun.add(barrel);
+  const guns = {};
+  for (const k of SLOT_ORDER) {
+    guns[k] = buildAvatarGun(k);
+    gun.add(guns[k]);
+  }
+  guns.rifle.visible = true;
   g.add(gun);
   const muzzleTip = new THREE.Object3D();
   muzzleTip.position.set(0, 0.03, 0.68);
@@ -152,7 +193,18 @@ function buildCharacterMesh(name, colorHex, level) {
   const tag = makeNameTag(name, c, level || 0);
   tag.sprite.position.y = 2.72;
   g.add(tag.sprite);
-  return { group: g, legL, legR, armL, armR, torso, head, visor, gun, muzzleTip, flash, tag };
+  const api = {
+    group: g, legL, legR, armL, armR, torso, head, visor, gun,
+    muzzleTip, flash, tag,
+    setGun(kind) {
+      if (!guns[kind] || this.curGun === kind) return;
+      if (this.curGun) guns[this.curGun].visible = false;
+      guns[kind].visible = true;
+      this.curGun = kind;
+    }
+  };
+  api.curGun = 'rifle';
+  return api;
 }
 
 function animateAvatar(av, hsp, dt, aiming, pitch, crouch) {

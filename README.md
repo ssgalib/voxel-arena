@@ -82,7 +82,7 @@ How it works:
 ## Pickups
 
 - **Health packs** (green cross, 4 spots) restore +40 HP, respawn after 12s
-- **Grenade restock** (amber, 4 spots) refills all 3 grenades, respawns after 15s
+- **Grenade restock** (amber, 4 spots) refills your grenade, respawns after 15s
 - **Quad damage** (purple octahedron, center platform) doubles your damage for 25s, respawns after 45s
 
 ## Run it

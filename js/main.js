@@ -277,11 +277,11 @@ Game.prototype.detonate = function (kind, pos, owner) {
   const radius = isGrenade ? GRENADE.radius : WEAPONS.rpg.radius;
   const dmgMax = isGrenade ? GRENADE.dmg : WEAPONS.rpg.dmg;
   this._explodeVisual(pos, radius);
-  if (this.isNetHost) {
+  if (this.netRole !== 'client') {
     this._explodeDamage(pos, radius, dmgMax, owner, isGrenade ? 'grenade' : 'rocket');
-    this.netSend('boom', { k: kind, p: [rnd2(pos.x), rnd2(pos.y), rnd2(pos.z)], o: owner && owner.id !== undefined ? owner.id : 0 });
-  } else {
-    this.netSend('boom', { k: kind, p: [rnd2(pos.x), rnd2(pos.y), rnd2(pos.z)], o: this.myId });
+  }
+  if (this.net) {
+    this.netSend('boom', { k: kind, p: [rnd2(pos.x), rnd2(pos.y), rnd2(pos.z)], o: owner && owner.id !== undefined ? owner.id : (this.isNetHost ? 0 : this.myId) });
   }
 };
 
@@ -548,7 +548,7 @@ Game.prototype.sendSnap = function () {
     if (e.isPlayer) {
       pitch = e.pitch; ads = e.adsAmt > 0.5 ? 1 : 0; cr = e.crouchAmt > 0.5 ? 1 : 0; w = SLOT_ORDER.indexOf(e.cur);
     } else if (e.netPitch !== undefined) {
-      pitch = e.netPitch; ads = e.netAds ? 1 : 0; cr = e.netCr ? 1 : 0;
+      pitch = e.netPitch; ads = e.netAds ? 1 : 0; cr = e.netCr ? 1 : 0; w = e.wpnIdx | 0;
     } else {
       pitch = e.aimPitch || 0; ads = e.state === 'engage' ? 1 : 0;
     }
@@ -1078,6 +1078,7 @@ Game.prototype.bindInput = function () {
   const self = this;
 
   addEventListener('keydown', e => {
+    if (e.code === 'KeyV') { if (!e.repeat) self.voice.ptt = true; return; }
     if (self.state !== 'playing' && self.state !== 'paused') return;
     if (e.code === 'Tab') { e.preventDefault(); self.tabHeld = true; return; }
     if (['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) e.preventDefault();
@@ -1099,7 +1100,6 @@ Game.prototype.bindInput = function () {
         self.hud.subAnnounce(muted ? 'MUTED' : 'SOUND ON');
       }
       if (e.code === 'KeyE') p.adsHeld = true;
-      if (e.code === 'KeyV') self.voice.ptt = true;
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') p.runHeld = true;
       if (e.code === 'KeyC') p.crouchHeld = true;
     }
@@ -1154,6 +1154,7 @@ Game.prototype.loop = function () {
     cl.position.x += dt * 1.2;
     if (cl.position.x > 80) cl.position.x = -80;
   }
+  this.voice.update(dt);
 
   if (st === 'menu' || st === 'end') {
     this.menuAngle += dt * 0.08;
@@ -1187,7 +1188,6 @@ Game.prototype.loop = function () {
     }
     this.updateProjectiles(dt);
     this.effects.update(dt);
-    this.voice.update(dt);
     this.shake *= Math.exp(-6 * dt);
 
     this.camera.rotation.set(p.pitch + p.recoil + U.rand(-1, 1) * this.shake * 0.02, p.yaw + U.rand(-1, 1) * this.shake * 0.02, 0);

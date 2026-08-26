@@ -36,6 +36,7 @@ class NetPlayer extends Bot {
     this.netPitch = U.clamp(parseFloat(m.pt) || 0, -1.53, 1.53);
     this.netAds = !!m.ads;
     this.netCr = m.cr ? 1 : 0;
+    this.wpnIdx = Math.max(0, Math.min(SLOT_ORDER.length - 1, m.w | 0));
     if (!this.alive) return;
     b.pos.set(m.x, Math.max(m.y, -2), m.z);
   }
@@ -74,6 +75,7 @@ class NetPlayer extends Bot {
     const hsp = Math.sqrt(this.body.vel.x ** 2 + this.body.vel.z ** 2);
     this.pitchS = U.damp(this.pitchS, this.netPitch, 14, dt);
     this.crS = U.damp(this.crS, this.netCr, 10, dt);
+    this.setGun(SLOT_ORDER[this.wpnIdx || 0]);
     animateAvatar(this, hsp, dt, this.fireVisT > 0 || this.netAds, this.pitchS, this.crS);
 
     let d = (this.netYawTarget !== undefined ? this.netYawTarget : this.netYaw) - this.netYaw;
@@ -147,6 +149,7 @@ class Ghost {
     this.tPitch = e.pitch || 0;
     this.tAds = !!e.ads;
     this.tCr = e.cr ? 1 : 0;
+    this.tW = Math.max(0, Math.min(SLOT_ORDER.length - 1, (e.w | 0) || 0));
     const wasAlive = this.alive;
     this.alive = !!e.a;
     this.hp = e.hp;
@@ -191,6 +194,7 @@ class Ghost {
     const hsp = Math.min(Math.sqrt((st.vx || 0) ** 2 + (st.vz || 0) ** 2), 12);
     this.pitchS = U.damp(this.pitchS, this.tPitch, 14, dt);
     this.crS = U.damp(this.crS, this.tCr, 10, dt);
+    this.setGun(SLOT_ORDER[this.tW || 0]);
     animateAvatar(this, hsp, dt, this.tAds || this.fireVisT > 0, this.pitchS, this.crS);
     this.mesh.rotation.y = st.yaw;
     this.mesh.position.copy(this.body.pos);

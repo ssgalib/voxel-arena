@@ -6,7 +6,7 @@ const WEAPONS = {
   pistol: { name: 'PISTOL', dmg: 20, head: 2.0, rpm: 330, mag: 12, rel: 1.25, spread: 0.02, adsSpr: 0.008, range: 90, auto: false, kick: 0.016, snd: 'pistol' }
 };
 const SLOT_ORDER = ['rifle', 'shotgun', 'sniper', 'rpg', 'pistol'];
-const GRENADE = { max: 3, fuse: 2.1, spd: 21, dmg: 105, radius: 6 };
+const GRENADE = { max: 1, fuse: 2.1, spd: 21, dmg: 105, radius: 6 };
 
 let _flashTex = null;
 function flashTexture() {
