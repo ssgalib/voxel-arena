@@ -21,6 +21,10 @@
   <div id="announce"></div>
   <div id="subann"></div>
   <div id="fpsmeter"></div>
+  <div id="voicewrap">
+    <div id="voicechip"></div>
+    <div id="talkers"></div>
+  </div>
 
   <div id="hpwrap">
     <div id="classtag">ASSAULT</div>
@@ -110,7 +114,7 @@
       <span><b>WASD</b> move</span><span><b>SPACE</b> jump</span><span><b>SHIFT</b> run</span>
       <span><b>C</b> crouch</span><span><b>Q / X</b> dash</span><span><b>LMB</b> fire</span>
       <span><b>RMB / E</b> aim</span><span><b>R</b> reload</span><span><b>1-5</b> weapons</span>
-      <span><b>G</b> grenade</span><span><b>TAB</b> scores</span><span><b>M</b> mute</span>
+      <span><b>G</b> grenade</span><span><b>TAB</b> scores</span><span><b>M</b> mute</span><span><b>V</b> voice</span>
     </div>
     <p class="foot">Fan-made tribute. Not affiliated with poxel.io. Built with three.js.</p>
   </div>
@@ -152,6 +156,8 @@
     <div class="settingRow"><span>MOUSE SENS</span><input type="range" id="sensRange" min="0.2" max="3" step="0.05"><b id="sensVal">1.0</b></div>
     <div class="settingRow"><span>VOLUME</span><input type="range" id="volRange" min="0" max="1" step="0.05"><b id="volVal">0.7</b></div>
     <div class="settingRow"><span>PIXELATE</span><input type="checkbox" id="pixChk"><span class="hint">retro low-res render</span></div>
+    <div class="settingRow"><span>VOICE</span><input type="checkbox" id="voiceChk"><span class="hint">hold V to talk (multiplayer)</span></div>
+    <div class="settingRow"><span>OPEN MIC</span><input type="checkbox" id="omicChk"><span class="hint">always transmit</span></div>
     <button id="quitBtn" class="ghost">QUIT TO MENU</button>
   </div>
 </div>
@@ -186,6 +192,7 @@
 <script src="js/bot.js"></script>
 <script src="js/netplayer.js"></script>
 <script src="js/net.js"></script>
+<script src="js/voice.js"></script>
 <script src="js/player.js"></script>
 <script src="js/hud.js"></script>
 <script src="js/main.js"></script>

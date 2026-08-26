@@ -7,6 +7,7 @@ A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https
 ## Features
 
 - **Online multiplayer** — peer-to-peer over WebRTC (no game server): host a private match and share the 5-char code; up to 7 players plus bot fill
+- **Positional voice chat** — push-to-talk (hold V) over the same P2P WebRTC connections; voices fade and pan with the speaker's position, works in the lobby too
 - **Accounts & levels** — optional accounts with unique name + password; earn XP for kills and wins, level up, and your name literally catches fire
 - **Burning names** — the higher your level, the fiercer your nametag flames (ember glow → flame tongues → blue-hot inferno at L25+), in-game and in the kill feed/scoreboard
 - **FFA deathmatch** against AI bots with patrol / hunt / engage behavior, line-of-sight targeting, strafing, and three difficulty tiers
@@ -54,6 +55,7 @@ Endpoints: `POST /api/register`, `POST /api/login`, `POST /api/logout`,
 | R | Reload |
 | 1–5 / Wheel | Select weapon |
 | G | Grenade |
+| V | Hold to talk (voice) |
 | Tab | Scoreboard |
 | M | Mute |
 
@@ -70,6 +72,7 @@ How it works:
 - The **host is authoritative**: it simulates bots, validates hits, awards damage/kills, owns pickups, projectiles' splash damage, and match end
 - Clients fully predict their own movement and shots (~30 Hz input / 20 Hz snapshots); remote players render interpolated at ~120 ms
 - Bots backfill to 8 total combatants; difficulty follows the host's menu selection
+- **Voice chat**: mic audio streams directly peer-to-peer (echo cancellation + noise suppression on); positional in-match (volume/pan follow the speaker), global in the lobby. Push-to-talk by default, open mic toggle in the pause menu
 - Pausing mid-match only opens the menu — the online match keeps running
 - Late joiners are rejected once a match is running; if the host leaves, everyone returns to the menu
 

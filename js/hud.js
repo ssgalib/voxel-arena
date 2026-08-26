@@ -24,6 +24,8 @@ class HUD {
     this.rctx = this.radarCv.getContext('2d');
     this.fpsEl = U.el('fpsmeter');
     this.protip = U.el('protip');
+    this.voiceChipEl = U.el('voicechip');
+    this.talkersEl = U.el('talkers');
     this.death = U.el('death');
     this.deathKiller = U.el('deathKiller');
     this.deathCount = U.el('deathCount');
@@ -200,6 +202,29 @@ class HUD {
 
   fps(v) {
     if (this._set('fps', v)) this.fpsEl.textContent = v + ' FPS';
+  }
+
+  voice(v, enabled) {
+    const chip = this.voiceChipEl, list = this.talkersEl;
+    if (!chip || !list) return;
+    let state, cls = '';
+    if (!enabled) state = '';
+    else if (v.failed) { state = v.failed; cls = 'err'; }
+    else if (!v.active) state = 'MIC OFF';
+    else if (v.isTalking('me')) { state = 'ON AIR'; cls = 'live'; }
+    else state = 'HOLD V';
+    const key = cls + '|' + state;
+    if (this._set('vchip', key)) {
+      chip.textContent = state;
+      chip.className = cls;
+      chip.style.display = state ? '' : 'none';
+    }
+    let html = '';
+    for (const pid of v.talkers) {
+      const name = pid === 'me' ? 'YOU' : v._nameFor(pid);
+      html += '<div class="vtx"><i></i>' + this._esc(name) + '</div>';
+    }
+    if (this._set('vtx', html)) list.innerHTML = html;
   }
 
   tip(txt) {

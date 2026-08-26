@@ -4,7 +4,7 @@ const LS = {
 };
 
 function Game() {
-  this.settings = { sens: 1.0, vol: 0.7, pixelate: false };
+  this.settings = { sens: 1.0, vol: 0.7, pixelate: false, voice: true, openMic: false };
   try {
     const s = JSON.parse(LS.get('voxelarena_settings'));
     if (s) Object.assign(this.settings, s);
@@ -48,6 +48,7 @@ function Game() {
   });
   this.effects = new Effects(this);
   this.hud = new HUD();
+  this.voice = new Voice(this);
   Account.init();
   this.bindUI();
   this.bindInput();
@@ -633,6 +634,7 @@ Game.prototype.mpHost = async function () {
   this.hostNextId = 1;
   this.roster = [{ pid: net.selfId, id: 0, name: sel.name, cls: sel.clsKey, lvl: Account.loggedIn ? Account.level : 0 }];
   this.setupNetHandlers();
+  this.voice.start();
   this._showLobby(true);
   this.updateLobbyUI();
   this.sfx.play('ui');
@@ -655,6 +657,7 @@ Game.prototype.mpJoin = async function () {
   this.netRole = 'client';
   this.roomCode = code;
   this.setupNetHandlers();
+  this.voice.start();
   net.send('hello', { n: sel.name, c: sel.clsKey, l: Account.loggedIn ? Account.level : 0 });
   this.joinTimeout = setTimeout(() => {
     if (this.state === 'menu' && !this.roster.length) {
@@ -665,6 +668,7 @@ Game.prototype.mpJoin = async function () {
 };
 
 Game.prototype._teardownNet = function () {
+  this.voice.stop();
   if (this.net) { this.net.leave(); this.net = null; }
   this.netRole = 'off';
   this.roster = [];
@@ -719,8 +723,12 @@ Game.prototype.leaveLobby = function () {
 
 Game.prototype.setupNetHandlers = function () {
   const net = this.net;
+  const self = this;
+
+  this.net.onPeerStream((stream, pid) => self.voice.onRemoteStream(pid, stream));
 
   net.on('_join', pid => {
+    if (this.voice.active) this.net.addStream(this.voice.stream, pid);
     if (this.netRole === 'client' && this.state === 'menu' && !this.helloAcked) {
       const sel = this._readMenuCfg();
       this.net.send('hello', { n: sel.name, c: sel.clsKey, l: Account.loggedIn ? Account.level : 0 }, pid);
@@ -728,6 +736,7 @@ Game.prototype.setupNetHandlers = function () {
   });
 
   net.on('_leave', pid => {
+    this.voice.dropPeer(pid);
     if (this.netRole === 'host') {
       const row = this.roster.find(r => r.pid === pid);
       this.roster = this.roster.filter(r => r.pid !== pid);
@@ -1009,12 +1018,20 @@ Game.prototype.bindUI = function () {
   });
 
   const sr = U.el('sensRange'), vr = U.el('volRange'), pc = U.el('pixChk');
+  const vc = U.el('voiceChk'), oc = U.el('omicChk');
   sr.value = this.settings.sens; vr.value = this.settings.vol; pc.checked = this.settings.pixelate;
+  vc.checked = this.settings.voice; oc.checked = this.settings.openMic;
   U.el('sensVal').textContent = Number(this.settings.sens).toFixed(2);
   U.el('volVal').textContent = Number(this.settings.vol).toFixed(2);
   sr.oninput = () => { self.settings.sens = parseFloat(sr.value); U.el('sensVal').textContent = self.settings.sens.toFixed(2); self.saveSettings(); };
   vr.oninput = () => { self.settings.vol = parseFloat(vr.value); self.sfx.setVolume(self.settings.vol); U.el('volVal').textContent = self.settings.vol.toFixed(2); self.saveSettings(); };
   pc.onchange = () => { self.settings.pixelate = pc.checked; self.applyResolution(); self.saveSettings(); };
+  vc.onchange = () => {
+    self.settings.voice = vc.checked; self.saveSettings();
+    if (!vc.checked) self.voice.stop();
+    else if (self.net) self.voice.start();
+  };
+  oc.onchange = () => { self.settings.openMic = oc.checked; self.saveSettings(); };
 
   addEventListener('resize', () => self.applyResolution());
   U.el('nameInput').value = LS.get('voxelarena_name') || '';
@@ -1059,12 +1076,14 @@ Game.prototype.bindInput = function () {
         self.hud.subAnnounce(muted ? 'MUTED' : 'SOUND ON');
       }
       if (e.code === 'KeyE') p.adsHeld = true;
+      if (e.code === 'KeyV') self.voice.ptt = true;
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') p.runHeld = true;
       if (e.code === 'KeyC') p.crouchHeld = true;
     }
   });
   addEventListener('keyup', e => {
     if (e.code === 'Tab') { self.tabHeld = false; return; }
+    if (e.code === 'KeyV') self.voice.ptt = false;
     self.keys.delete(e.code);
     const p = self.player;
     if (!p) return;
@@ -1145,6 +1164,7 @@ Game.prototype.loop = function () {
     }
     this.updateProjectiles(dt);
     this.effects.update(dt);
+    this.voice.update(dt);
     this.shake *= Math.exp(-6 * dt);
 
     this.camera.rotation.set(p.pitch + p.recoil + U.rand(-1, 1) * this.shake * 0.02, p.yaw + U.rand(-1, 1) * this.shake * 0.02, 0);
@@ -1191,6 +1211,7 @@ Game.prototype.loop = function () {
         k: e.score.k, d: e.score.d, me: !!e.isPlayer, lvl: e.lvl || 0
       }));
       this.hud.board(rows, 'FFA \u2022 FIRST TO ' + this.cfg.limit, this.tabHeld);
+      this.hud.voice(this.voice, this.netRole !== 'off' && this.settings.voice);
     }
     this.hud.radar(this.combatants(), p.body.pos, p.yaw);
     this.hud.tick(dt);

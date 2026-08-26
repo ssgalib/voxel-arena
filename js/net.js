@@ -46,6 +46,21 @@ class Net {
 
   on(name, fn) { this.handlers[name] = fn; }
 
+  addStream(stream, toPid) {
+    if (!this.room) return;
+    try { this.room.addStream(stream, toPid); } catch (e) {}
+  }
+
+  onPeerStream(fn) {
+    if (!this.room) return;
+    this.room.onPeerStream = (stream, pid, meta) => fn(stream, pid, meta);
+  }
+
+  getStreams() {
+    if (!this.room || !this.room.getStreams) return {};
+    try { return this.room.getStreams(); } catch (e) { return {}; }
+  }
+
   _emit(name, data, pid) {
     const h = this.handlers[name];
     if (h) h(data, pid);

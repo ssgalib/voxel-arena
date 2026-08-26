@@ -144,6 +144,20 @@ h2{font-size:34px;font-weight:900;letter-spacing:4px;font-style:italic;margin-bo
 
 #fpsmeter{position:absolute;top:12px;right:14px;font-size:11px;color:rgba(255,255,255,.4);letter-spacing:1px}
 
+#voicewrap{position:absolute;top:34px;right:14px;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+#voicechip{
+  font-size:10px;font-weight:800;letter-spacing:2px;padding:3px 9px;border-radius:5px;
+  background:rgba(8,12,18,.7);border:1px solid var(--line);color:#7f8ea0;
+}
+#voicechip.live{background:rgba(198,255,55,.15);border-color:var(--acc);color:var(--acc);animation:pulse2 1.2s infinite}
+#voicechip.err{color:#ff5d3e;border-color:rgba(255,93,62,.5)}
+#talkers{display:flex;flex-direction:column;gap:3px}
+.vtx{
+  display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:1px;color:#dfe7ee;
+  background:rgba(8,12,18,.66);border-radius:5px;padding:3px 8px;
+}
+.vtx i{width:7px;height:7px;border-radius:50%;background:var(--acc);animation:pulse2 1s infinite}
+
 #hpwrap{position:absolute;left:26px;bottom:26px;width:260px;height:46px}
 #classtag{position:absolute;top:-26px;left:0;font-size:11px;font-weight:800;letter-spacing:3px;color:#0f1400;background:var(--acc);padding:2px 9px;border-radius:4px}
 #hpbar{position:absolute;left:0;bottom:2px;width:190px;height:16px;background:rgba(8,12,18,.75);border:1px solid var(--line);border-radius:5px;overflow:hidden}
