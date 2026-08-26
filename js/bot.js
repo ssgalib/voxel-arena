@@ -56,6 +56,8 @@ class Bot {
     this.visor = a.visor;
     this.gun = a.gun;
     this.setGun = a.setGun;
+    this.crown = a.crown;
+    this.setCrown = a.setCrown;
     this.muzzleTip = a.muzzleTip;
     this.flash = a.flash;
     this.tag = a.tag;

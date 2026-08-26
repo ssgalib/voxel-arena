@@ -144,6 +144,19 @@ function buildAvatarGun(kind) {
   return g;
 }
 
+function buildCrown() {
+  const g = new THREE.Group();
+  const gold = 0xffd23e;
+  abox(g, 0.36, 0.1, 0.36, 0, 0.05, 0, gold);
+  abox(g, 0.07, 0.15, 0.07, -0.13, 0.17, -0.13, gold);
+  abox(g, 0.07, 0.19, 0.07, 0.13, 0.19, -0.13, gold);
+  abox(g, 0.07, 0.15, 0.07, -0.13, 0.17, 0.13, gold);
+  abox(g, 0.07, 0.19, 0.07, 0.13, 0.19, 0.13, gold);
+  abox(g, 0.07, 0.07, 0.07, 0, 0.14, 0, 0xff4747);
+  g.visible = false;
+  return g;
+}
+
 function buildCharacterMesh(name, colorHex, level) {
   const c = colorHex;
   const dark = new THREE.Color(c).multiplyScalar(0.65).getHex();
@@ -175,7 +188,8 @@ function buildCharacterMesh(name, colorHex, level) {
   visor.position.set(0, 1.87, 0.245);
   g.add(visor);
   const gun = new THREE.Group();
-  gun.position.set(0.3, 1.32, 0.18);
+  gun.position.set(0.42, 1.28, 0.42);
+  gun.scale.setScalar(1.3);
   const guns = {};
   for (const k of SLOT_ORDER) {
     guns[k] = buildAvatarGun(k);
@@ -193,14 +207,20 @@ function buildCharacterMesh(name, colorHex, level) {
   const tag = makeNameTag(name, c, level || 0);
   tag.sprite.position.y = 2.72;
   g.add(tag.sprite);
+  const crown = buildCrown();
+  crown.position.y = 2.32;
+  g.add(crown);
   const api = {
     group: g, legL, legR, armL, armR, torso, head, visor, gun,
-    muzzleTip, flash, tag,
+    muzzleTip, flash, tag, crown,
     setGun(kind) {
       if (!guns[kind] || this.curGun === kind) return;
       if (this.curGun) guns[this.curGun].visible = false;
       guns[kind].visible = true;
       this.curGun = kind;
+    },
+    setCrown(on) {
+      if (this.crown.visible !== !!on) this.crown.visible = !!on;
     }
   };
   api.curGun = 'rifle';
@@ -222,12 +242,16 @@ function animateAvatar(av, hsp, dt, aiming, pitch, crouch) {
     av.torso.position.y = 1.21 - 0.28 * c;
     av.head.position.y = 1.83 - 0.42 * c;
     av.visor.position.y = 1.87 - 0.42 * c;
-    av.gun.position.y = 1.32 - 0.35 * c;
+    av.gun.position.y = 1.28 - 0.35 * c;
     av.tag.sprite.position.y = 2.72 - 0.42 * c;
   }
-  av.armL.rotation.x = -s * swing * 0.7;
+  av.armL.rotation.x = U.lerp(-s * swing * 0.7, -1.05, a * 0.85);
   av.armR.rotation.x = U.lerp(s * swing * 0.7 - 0.25, -1.3 - p * 0.55, a);
   av.gun.rotation.x = -p * (0.3 + 0.7 * a);
-  av.gun.position.z = 0.18 + a * 0.06;
+  av.gun.position.z = 0.42 + a * 0.12;
+  if (av.crown && av.crown.visible) {
+    av.crown.position.y = 2.32 + Math.sin(performance.now() * 0.004) * 0.05;
+    av.crown.rotation.y += dt * 1.6;
+  }
   if (av.tag && av.tag.tick) av.tag.tick(performance.now());
 }

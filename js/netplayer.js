@@ -122,6 +122,8 @@ class Ghost {
     this.legL = a.legL; this.legR = a.legR; this.armL = a.armL; this.armR = a.armR;
     this.torso = a.torso; this.head = a.head; this.visor = a.visor; this.gun = a.gun;
     this.setGun = a.setGun;
+    this.crown = a.crown;
+    this.setCrown = a.setCrown;
     this.muzzleTip = a.muzzleTip; this.flash = a.flash; this.tag = a.tag;
     this.mesh = a.group;
     this.tPitch = 0;

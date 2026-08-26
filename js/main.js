@@ -1234,6 +1234,11 @@ Game.prototype.loop = function () {
         k: e.score.k, d: e.score.d, me: !!e.isPlayer, lvl: e.lvl || 0
       }));
       this.hud.board(rows, 'FFA \u2022 FIRST TO ' + this.cfg.limit, this.tabHeld);
+      let topK = 0;
+      for (const e of list) if (e.score.k > topK) topK = e.score.k;
+      for (const e of this.combatants()) {
+        if (e.setCrown) e.setCrown(topK >= 1 && e.score.k === topK);
+      }
       this.hud.voice(this.voice, this.netRole !== 'off' && this.settings.voice);
     }
     this.hud.radar(this.combatants(), p.body.pos, p.yaw);
