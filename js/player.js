@@ -14,6 +14,7 @@ class Player {
     this.cls = CLASS_DEFS[this.clsKey];
     this.name = 'YOU';
     this.colorHex = this.cls.hex;
+    this.lvl = 0;
     this.score = { k: 0, d: 0 };
     this.body = { pos: new THREE.Vector3(0, 0, 24), r: 0.38, h: 1.95, step: 0.8, vel: new THREE.Vector3(), grounded: false };
     this.yaw = Math.PI;

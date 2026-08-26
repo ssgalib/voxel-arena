@@ -114,10 +114,11 @@ class HUD {
     return /^#[0-9a-fA-F]{3,8}$/.test(s) ? s : '#ffffff';
   }
 
-  killFeed(kName, kCol, vName, vCol, wpn, head) {
+  killFeed(kName, kCol, vName, vCol, wpn, head, sTier, vTier) {
     const d = document.createElement('div');
     d.className = 'kf';
-    d.innerHTML = '<b style="color:' + this._col(kCol) + '">' + this._esc(kName) + '</b><i>[' + this._esc(wpn.toUpperCase()) + (head ? ' \u2022 HS' : '') + ']</i><b style="color:' + this._col(vCol) + '">' + this._esc(vName) + '</b>';
+    const sc = sTier ? ' t' + sTier : '', vc = vTier ? ' t' + vTier : '';
+    d.innerHTML = '<b class="' + sc.trim() + '" style="color:' + this._col(kCol) + '">' + this._esc(kName) + '</b><i>[' + this._esc(wpn.toUpperCase()) + (head ? ' \u2022 HS' : '') + ']</i><b class="' + vc.trim() + '" style="color:' + this._col(vCol) + '">' + this._esc(vName) + '</b>';
     this.kfEl.prepend(d);
     while (this.kfEl.children.length > 6) this.kfEl.lastChild.remove();
     setTimeout(() => { d.style.transition = 'opacity .4s'; d.style.opacity = 0; }, 3800);
@@ -146,7 +147,8 @@ class HUD {
     let html = '';
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
-      html += '<div class="brow' + (e.me ? ' me' : '') + '"><span class="bk">' + (i + 1) + '</span><span class="bn" style="color:' + e.col + '">' + this._esc(e.name) + '</span><span class="bs">' + (e.k | 0) + '</span><span class="bd">' + (e.d | 0) + '</span></div>';
+      const tc = e.lvl && tierForLevel(e.lvl) ? ' t' + tierForLevel(e.lvl) : '';
+      html += '<div class="brow' + (e.me ? ' me' : '') + '"><span class="bk">' + (i + 1) + '</span><span class="bn' + tc + '" style="color:' + e.col + '">' + this._esc(e.name) + '</span><span class="bs">' + (e.k | 0) + '</span><span class="bd">' + (e.d | 0) + '</span></div>';
     }
     if (this._set('board', html)) this.boardrows.innerHTML = html;
     this.boardwrap.classList.toggle('exp', !!expanded);
@@ -212,7 +214,8 @@ class HUD {
     U.el('endTitle').style.color = win ? 'var(--acc)' : '#ff6b6b';
     let html = '';
     rows.forEach((r, i) => {
-      html += '<div class="endRow' + (r.me ? ' me' : '') + '"><span class="rk">#' + (i + 1) + '</span><span class="nm" style="color:' + r.col + '">' + this._esc(r.name) + '</span><span class="kd">' + (r.k | 0) + ' / ' + (r.d | 0) + '</span></div>';
+      const tc = r.lvl && tierForLevel(r.lvl) ? ' t' + tierForLevel(r.lvl) : '';
+      html += '<div class="endRow' + (r.me ? ' me' : '') + '"><span class="rk">#' + (i + 1) + '</span><span class="nm' + tc + '" style="color:' + r.col + '">' + this._esc(r.name) + '</span><span class="kd">' + (r.k | 0) + ' / ' + (r.d | 0) + '</span></div>';
     });
     U.el('endBoardWrap').innerHTML = html;
   }

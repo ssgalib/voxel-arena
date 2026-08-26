@@ -8,6 +8,16 @@ window.U = {
   el(id) { return document.getElementById(id); }
 };
 
+window.levelFromXp = function (xp) {
+  let level = 1, rem = Math.max(0, xp | 0);
+  while (rem >= 100 * level && level < 9999) { rem -= 100 * level; level++; }
+  return { level: level, into: rem, need: 100 * level };
+};
+
+window.tierForLevel = function (level) {
+  return Math.min(5, Math.max(0, Math.floor(((level || 1) - 1) / 5)));
+};
+
 window.segBox = function (ox, oy, oz, dx, dy, dz, len, b) {
   let tmin = 0, tmax = len;
   let t1, t2, inv;

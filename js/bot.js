@@ -7,10 +7,11 @@ const DIFFS = {
 };
 
 class Bot {
-  constructor(game, name, colorHex, diffKey) {
+  constructor(game, name, colorHex, diffKey, lvl) {
     this.game = game;
     this.name = name;
     this.colorHex = colorHex;
+    this.lvl = lvl | 0;
     this.diff = DIFFS[diffKey] || DIFFS.normal;
     this.isPlayer = false;
     this.score = { k: 0, d: 0 };
@@ -45,7 +46,7 @@ class Bot {
   }
 
   _buildMesh() {
-    const a = buildCharacterMesh(this.name, this.colorHex);
+    const a = buildCharacterMesh(this.name, this.colorHex, this.lvl);
     this.legL = a.legL;
     this.legR = a.legR;
     this.armL = a.armL;
@@ -288,6 +289,7 @@ class Bot {
   }
 
   dispose() {
+    this.tag.destroy();
     this.game.scene.remove(this.mesh);
   }
 }

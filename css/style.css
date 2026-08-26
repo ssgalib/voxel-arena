@@ -192,6 +192,39 @@ h2{font-size:34px;font-weight:900;letter-spacing:4px;font-style:italic;margin-bo
   color:rgba(255,255,255,.5);text-transform:uppercase;transition:opacity .5s;
 }
 
+/* account */
+#acct{margin-bottom:14px}
+.label i.opt{font-style:normal;letter-spacing:.5px;color:#5c6875;text-transform:lowercase}
+.acctRow{display:flex;gap:8px;margin-bottom:8px}
+.acctRow input{
+  flex:1;min-width:0;padding:10px;text-align:center;font-size:13px;font-weight:700;letter-spacing:1px;
+  background:#0d1420;border:1px solid var(--line);border-radius:7px;color:#fff;outline:none;
+}
+.acctRow input:focus{border-color:var(--acc)}
+.acctBtn{padding:9px 4px;font-size:12px}
+#acctMsg{min-height:16px;font-size:11px;letter-spacing:1.5px;color:#ff9e40;text-align:left}
+#acctWho{display:flex;align-items:baseline;justify-content:space-between;background:#0d1420;border:1px solid var(--line);border-radius:7px;padding:9px 12px}
+#acctWho b{font-size:15px;font-weight:800;letter-spacing:1px}
+#acctWho i{font-style:normal;color:var(--acc);font-size:11px;font-weight:800;letter-spacing:2px}
+#acctBar{height:8px;background:#0d1420;border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-top:8px}
+#acctFill{height:100%;width:0;background:linear-gradient(90deg,#ff5d3e,#ffb03a);transition:width .3s}
+#acctXp{margin-top:5px;font-size:10px;letter-spacing:1.5px;color:#7f8ea0;text-align:left}
+#logoutBtn{margin-top:8px}
+
+/* flame name tiers */
+.t1{text-shadow:0 0 6px rgba(255,120,20,.75)}
+.t2{text-shadow:0 0 7px rgba(255,105,15,.95),0 0 16px rgba(255,80,10,.55)}
+.t3{text-shadow:0 0 8px rgba(255,90,10,1),0 0 18px rgba(255,60,5,.7),0 0 34px rgba(255,140,30,.4)}
+.t4{text-shadow:0 0 9px rgba(255,70,5,1),0 0 22px rgba(255,45,0,.85),0 0 44px rgba(255,150,40,.55);animation:flicker .9s infinite}
+.t5{text-shadow:0 0 10px rgba(255,50,0,1),0 0 26px rgba(255,40,0,.95),0 0 54px rgba(130,210,255,.75),0 0 80px rgba(80,160,255,.45);animation:flicker .65s infinite}
+@keyframes flicker{
+  0%,100%{filter:brightness(1)}
+  22%{filter:brightness(1.28)}
+  47%{filter:brightness(.92)}
+  71%{filter:brightness(1.42)}
+  86%{filter:brightness(1.05)}
+}
+
 /* multiplayer */
 #mp{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:41}
 .mpTitle{text-align:center;margin-bottom:18px}

@@ -48,6 +48,7 @@ function Game() {
   });
   this.effects = new Effects(this);
   this.hud = new HUD();
+  Account.init();
   this.bindUI();
   this.bindInput();
   this.applyResolution();
@@ -142,9 +143,10 @@ Game.prototype.registerKill = function (src, victim, isHead, wpn) {
   const sName = src === victim ? victim.name : (src ? src.name : '?');
   const sCol = src && src.cls ? src.cls.color : '#' + ((src && src.colorHex) || 0xffffff).toString(16).padStart(6, '0');
   const vCol = victim.cls ? victim.cls.color : '#' + victim.colorHex.toString(16).padStart(6, '0');
-  this.hud.killFeed(sName, sCol, victim.name, vCol, WPN_LABEL[wpn] || wpn, isHead);
+  const sTier = tierForLevel(src && src.lvl), vTier = tierForLevel(victim.lvl);
+  this.hud.killFeed(sName, sCol, victim.name, vCol, WPN_LABEL[wpn] || wpn, isHead, sTier, vTier);
   if (this.isNetHost) {
-    this.netSend('feed', { kn: sName, kc: sCol, vn: victim.name, vc: vCol, w: wpn, h: isHead ? 1 : 0 });
+    this.netSend('feed', { kn: sName, kc: sCol, vn: victim.name, vc: vCol, w: wpn, h: isHead ? 1 : 0, sl: sTier, vl: vTier });
   }
 
   if (src && src.isPlayer && victim !== src) {
@@ -431,6 +433,12 @@ Game.prototype._commonStart = function () {
   this.tipI = 0;
   this.snapT = 0;
   this.inputT = 0;
+  this.reportedEnd = false;
+  this.player.lvl = Account.loggedIn ? Account.level : 0;
+  if (Account.pendingAnnounce) {
+    this.hud.subAnnounce(Account.pendingAnnounce);
+    Account.pendingAnnounce = null;
+  }
   this.lastKillerName = null;
   this.hud.reset(this.player.cls.label);
   this.hud.announce('FIGHT', 'FIRST TO ' + this.cfg.limit + ' FRAGS');
@@ -470,12 +478,12 @@ Game.prototype.beginMatchHost = function () {
   this.player = new Player(this, sel.clsKey);
   this.player.name = sel.name;
   this.player.id = 0;
-  this.entMeta[0] = { name: this.player.name, hex: this.player.cls.hex };
+  this.entMeta[0] = { name: this.player.name, hex: this.player.cls.hex, lvl: Account.loggedIn ? Account.level : 0 };
   for (const r of this.roster) {
     if (r.pid === this.net.selfId) continue;
-    const np = new NetPlayer(this, r.id, r.name, r.cls, r.pid);
+    const np = new NetPlayer(this, r.id, r.name, r.cls, r.pid, r.lvl);
     this.remote.push(np);
-    this.entMeta[r.id] = { name: r.name, hex: np.colorHex };
+    this.entMeta[r.id] = { name: r.name, hex: np.colorHex, lvl: r.lvl || 0 };
   }
   let maxId = 0;
   for (const r of this.roster) maxId = Math.max(maxId, r.id);
@@ -491,7 +499,7 @@ Game.prototype.beginMatchHost = function () {
     const b = new Bot(this, names[i], cols[i], this.cfg.diff);
     b.id = bid;
     this.bots.push(b);
-    this.entMeta[bid] = { name: names[i], hex: cols[i] };
+    this.entMeta[bid] = { name: names[i], hex: cols[i], lvl: 0 };
   }
   this.pickups = new Pickups(this);
   this.netSend('start', { limit: this.cfg.limit, diff: this.cfg.diff, roster: this._rosterMsg(), bots: this.botMeta });
@@ -507,26 +515,28 @@ Game.prototype.beginMatchClient = function (pl) {
   this.player = new Player(this, me ? me.cls : 'assault');
   this.player.name = me ? me.name : 'YOU';
   this.player.id = this.myId;
-  this.entMeta[this.myId] = { name: this.player.name, hex: this.player.cls.hex };
+  const myLvl = me ? (me.lvl || 0) : (Account.loggedIn ? Account.level : 0);
+  if (Account.loggedIn && me) Account.level = myLvl;
+  this.entMeta[this.myId] = { name: this.player.name, hex: this.player.cls.hex, lvl: myLvl };
   for (const r of this.roster) {
     if (r.pid === this.net.selfId) continue;
     const clsDef = CLASS_DEFS[r.cls];
-    this.entMeta[r.id] = { name: r.name, hex: clsDef ? clsDef.hex : 0xffffff };
+    this.entMeta[r.id] = { name: r.name, hex: clsDef ? clsDef.hex : 0xffffff, lvl: r.lvl || 0 };
   }
-  for (const bm of this.botMeta) this.entMeta[bm.id] = { name: bm.name, hex: bm.hex };
+  for (const bm of this.botMeta) this.entMeta[bm.id] = { name: bm.name, hex: bm.hex, lvl: bm.lvl || 0 };
   this.pickups = new Pickups(this);
   this.lastOwnHp = this.player.hp;
   this._commonStart();
 };
 
 Game.prototype._rosterMsg = function () {
-  return this.roster.map(r => [r.pid, r.id, r.name, r.cls]);
+  return this.roster.map(r => [r.pid, r.id, r.name, r.cls, r.lvl || 0]);
 };
 
 Game.prototype.ensureRemote = function (id) {
   for (const r of this.remote) if (r.id === id) return r;
   const meta = this.entMeta[id];
-  const g = new Ghost(this, id, meta ? meta.name : '???', meta ? meta.hex : 0xffffff);
+  const g = new Ghost(this, id, meta ? meta.name : '???', meta ? meta.hex : 0xffffff, meta ? meta.lvl : 0);
   this.remote.push(g);
   return g;
 };
@@ -621,7 +631,7 @@ Game.prototype.mpHost = async function () {
   this.netRole = 'host';
   this.roomCode = code;
   this.hostNextId = 1;
-  this.roster = [{ pid: net.selfId, id: 0, name: sel.name, cls: sel.clsKey }];
+  this.roster = [{ pid: net.selfId, id: 0, name: sel.name, cls: sel.clsKey, lvl: Account.loggedIn ? Account.level : 0 }];
   this.setupNetHandlers();
   this._showLobby(true);
   this.updateLobbyUI();
@@ -645,7 +655,7 @@ Game.prototype.mpJoin = async function () {
   this.netRole = 'client';
   this.roomCode = code;
   this.setupNetHandlers();
-  net.send('hello', { n: sel.name, c: sel.clsKey });
+  net.send('hello', { n: sel.name, c: sel.clsKey, l: Account.loggedIn ? Account.level : 0 });
   this.joinTimeout = setTimeout(() => {
     if (this.state === 'menu' && !this.roster.length) {
       this._mpStatus('NO MATCH FOUND FOR CODE ' + code, 'err');
@@ -713,7 +723,7 @@ Game.prototype.setupNetHandlers = function () {
   net.on('_join', pid => {
     if (this.netRole === 'client' && this.state === 'menu' && !this.helloAcked) {
       const sel = this._readMenuCfg();
-      this.net.send('hello', { n: sel.name, c: sel.clsKey }, pid);
+      this.net.send('hello', { n: sel.name, c: sel.clsKey, l: Account.loggedIn ? Account.level : 0 }, pid);
     }
   });
 
@@ -746,11 +756,12 @@ Game.prototype.setupNetHandlers = function () {
     if (this.roster.length >= 8) { net.send('deny', { r: 'LOBBY FULL' }, pid); return; }
     let row = this.roster.find(r => r.pid === pid);
     if (!row) {
-      row = { pid: pid, id: this.hostNextId++, name: ('' + (h.n || 'PLAYER')).toUpperCase().slice(0, 14), cls: CLASS_DEFS[h.c] ? h.c : 'assault' };
+      row = { pid: pid, id: this.hostNextId++, name: ('' + (h.n || 'PLAYER')).toUpperCase().slice(0, 14), cls: CLASS_DEFS[h.c] ? h.c : 'assault', lvl: Math.max(0, Math.min(999, parseInt(h.l, 10) || 0)) };
       this.roster.push(row);
     } else {
       row.name = ('' + (h.n || row.name)).toUpperCase().slice(0, 14);
       row.cls = CLASS_DEFS[h.c] ? h.c : row.cls;
+      row.lvl = Math.max(0, Math.min(999, parseInt(h.l, 10) || 0));
     }
     this.netSend('roster', this._rosterMsg());
     this.updateLobbyUI();
@@ -765,7 +776,7 @@ Game.prototype.setupNetHandlers = function () {
 
   net.on('roster', rows => {
     if (this.netRole !== 'client') return;
-    this.roster = rows.map(r => ({ pid: r[0], id: r[1], name: r[2], cls: r[3] }));
+    this.roster = rows.map(r => ({ pid: r[0], id: r[1], name: r[2], cls: r[3], lvl: (r[4] | 0) }));
     clearTimeout(this.joinTimeout);
     const hostRow = this.roster.find(r => r.id === 0);
     if (hostRow) this.hostPid = hostRow.pid;
@@ -826,7 +837,7 @@ Game.prototype.setupNetHandlers = function () {
   net.on('boom', m => this.receiveBoom(m));
 
   net.on('feed', d => {
-    this.hud.killFeed(d.kn, d.kc, d.vn, d.vc, WPN_LABEL[d.w] || d.w, !!d.h);
+    this.hud.killFeed(d.kn, d.kc, d.vn, d.vc, WPN_LABEL[d.w] || d.w, !!d.h, d.sl | 0, d.vl | 0);
   });
 
   net.on('died', d => {
@@ -857,6 +868,13 @@ Game.prototype.setupNetHandlers = function () {
   net.on('end', m => this.showEndRemote(m));
 };
 
+Game.prototype._reportMatchResult = function (won) {
+  if (this.reportedEnd) return;
+  this.reportedEnd = true;
+  if (!Account.loggedIn || !this.player) return;
+  Account.reportMatch(this.player.score.k, won);
+};
+
 Game.prototype.endMatch = function (winner) {
   this.state = 'end';
   document.exitPointerLock();
@@ -867,7 +885,7 @@ Game.prototype.endMatch = function (winner) {
   const rows = list.map(e => ({
     name: e.name,
     col: e.cls ? e.cls.color : '#' + e.colorHex.toString(16).padStart(6, '0'),
-    k: e.score.k, d: e.score.d, me: !!e.isPlayer
+    k: e.score.k, d: e.score.d, me: !!e.isPlayer, lvl: e.lvl || 0
   }));
   if (this.isNetHost) {
     this.netSend('end', {
@@ -876,6 +894,7 @@ Game.prototype.endMatch = function (winner) {
       wn: winner ? winner.name : '?'
     });
   }
+  this._reportMatchResult(!!winner.isPlayer);
   this.hud.endScreen(rows, winner.isPlayer ? 'VICTORY' : winner.name + ' WINS', !!winner.isPlayer);
   U.el('rematchBtn').classList.toggle('hidden', this.netRole === 'client');
   U.el('endWait').classList.toggle('hidden', this.netRole !== 'client');
@@ -892,8 +911,9 @@ Game.prototype.showEndRemote = function (m) {
   this.hud.hideDeath();
   const rows = m.rows.map(r => {
     const meta = this.metaForId(r[0]);
-    return { name: meta.name, col: meta.col, k: r[1], d: r[2], me: r[0] === this.myId };
+    return { name: meta.name, col: meta.col, k: r[1], d: r[2], me: r[0] === this.myId, lvl: meta.lvl || 0 };
   }).sort((a, b) => b.k - a.k || a.d - b.d);
+  this._reportMatchResult(m.win === this.myId);
   this.hud.endScreen(rows, m.win === this.myId ? 'VICTORY' : m.wn + ' WINS', m.win === this.myId);
   U.el('rematchBtn').classList.add('hidden');
   U.el('endWait').classList.remove('hidden');
@@ -903,11 +923,11 @@ Game.prototype.showEndRemote = function (m) {
 
 Game.prototype.metaForId = function (id) {
   if (this.player && id === this.myId) {
-    return { name: this.player.name, col: this.player.cls ? this.player.cls.color : '#ffffff' };
+    return { name: this.player.name, col: this.player.cls ? this.player.cls.color : '#ffffff', lvl: this.player.lvl || 0 };
   }
   const m = this.entMeta[id];
   if (m) return m;
-  return { name: '???', col: '#ffffff' };
+  return { name: '???', col: '#ffffff', lvl: 0 };
 };
 
 Game.prototype.quitToMenu = function () {
@@ -1168,7 +1188,7 @@ Game.prototype.loop = function () {
       const rows = list.map(e => ({
         name: e.name,
         col: e.cls ? e.cls.color : '#' + e.colorHex.toString(16).padStart(6, '0'),
-        k: e.score.k, d: e.score.d, me: !!e.isPlayer
+        k: e.score.k, d: e.score.d, me: !!e.isPlayer, lvl: e.lvl || 0
       }));
       this.hud.board(rows, 'FFA \u2022 FIRST TO ' + this.cfg.limit, this.tabHeld);
     }

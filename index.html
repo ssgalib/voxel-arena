@@ -52,6 +52,29 @@
   <div class="panel menuPanel">
     <h1 class="title">VOXEL<span>ARENA</span></h1>
     <p class="subtitle">fast voxel fps &mdash; fan tribute to poxel.io</p>
+
+    <div id="acct">
+      <div id="acctOut">
+        <div class="label">ACCOUNT <i class="opt">(optional &mdash; earn levels &amp; flame names)</i></div>
+        <div class="acctRow">
+          <input id="acctUser" maxlength="14" placeholder="NAME" spellcheck="false" autocomplete="username">
+          <input id="acctPass" type="password" maxlength="100" placeholder="PASSWORD" spellcheck="false" autocomplete="current-password">
+        </div>
+        <div class="acctRow">
+          <button id="loginBtn" class="seg acctBtn">LOG IN</button>
+          <button id="regBtn" class="seg acctBtn">REGISTER</button>
+        </div>
+        <div id="acctMsg"></div>
+      </div>
+      <div id="acctIn" class="hidden">
+        <div class="label">ACCOUNT</div>
+        <div id="acctWho"></div>
+        <div id="acctBar"><div id="acctFill"></div></div>
+        <div id="acctXp"></div>
+        <button id="logoutBtn" class="seg acctBtn">LOG OUT</button>
+      </div>
+    </div>
+
     <input id="nameInput" maxlength="14" placeholder="PLAYER" spellcheck="false">
 
     <div class="label">CLASS</div>
@@ -153,6 +176,7 @@
 
 <script src="vendor/three.min.js"></script>
 <script src="js/util.js"></script>
+<script src="js/account.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/world.js"></script>
 <script src="js/effects.js"></script>

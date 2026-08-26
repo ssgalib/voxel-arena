@@ -2,8 +2,8 @@ const NET_INTERP_DELAY = 120;
 const NET_INPUT_TIMEOUT = 3;
 
 class NetPlayer extends Bot {
-  constructor(game, id, name, clsKey, peerId) {
-    super(game, name || 'PLAYER', CLASS_DEFS[clsKey] ? CLASS_DEFS[clsKey].hex : 0x4fc3f7, 'normal');
+  constructor(game, id, name, clsKey, peerId, lvl) {
+    super(game, name || 'PLAYER', CLASS_DEFS[clsKey] ? CLASS_DEFS[clsKey].hex : 0x4fc3f7, 'normal', lvl || 0);
     this.id = id;
     this.peerId = peerId;
     this.clsKey = clsKey || 'assault';
@@ -80,16 +80,18 @@ class NetPlayer extends Bot {
   }
 
   dispose() {
+    this.tag.destroy();
     this.game.scene.remove(this.mesh);
   }
 }
 
 class Ghost {
-  constructor(game, id, name, colorHex) {
+  constructor(game, id, name, colorHex, lvl) {
     this.game = game;
     this.id = id;
     this.name = name || 'PLAYER';
     this.colorHex = colorHex;
+    this.lvl = lvl | 0;
     this.isPlayer = false;
     this.score = { k: 0, d: 0 };
     this.maxHp = 100;
@@ -103,7 +105,7 @@ class Ghost {
     this.flashT = 0;
     this.samples = [];
     this.hasSample = false;
-    const a = buildCharacterMesh(this.name, colorHex);
+    const a = buildCharacterMesh(this.name, colorHex, this.lvl);
     this.legL = a.legL; this.legR = a.legR; this.armL = a.armL; this.armR = a.armR;
     this.muzzleTip = a.muzzleTip; this.flash = a.flash; this.tag = a.tag;
     this.mesh = a.group;
@@ -182,6 +184,7 @@ class Ghost {
   }
 
   dispose() {
+    this.tag.destroy();
     this.game.scene.remove(this.mesh);
   }
 }

@@ -6,7 +6,9 @@ A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https
 
 ## Features
 
-- **Online multiplayer** — peer-to-peer over WebRTC (no server): host a private match and share the 5-char code; up to 7 players plus bot fill
+- **Online multiplayer** — peer-to-peer over WebRTC (no game server): host a private match and share the 5-char code; up to 7 players plus bot fill
+- **Accounts & levels** — optional accounts with unique name + password; earn XP for kills and wins, level up, and your name literally catches fire
+- **Burning names** — the higher your level, the fiercer your nametag flames (ember glow → flame tongues → blue-hot inferno at L25+), in-game and in the kill feed/scoreboard
 - **FFA deathmatch** against AI bots with patrol / hunt / engage behavior, line-of-sight targeting, strafing, and three difficulty tiers
 - **5 weapons**: assault rifle, shotgun (8 pellets), sniper with scope zoom, rocket launcher with splash damage, pistol
 - **3 classes**: Assault (balanced), Scout (fast + quick dash), Heavy (tanky + blast resistant)
@@ -17,6 +19,27 @@ A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https
 - Procedurally built arena — central platform, corner towers, containers, crates, drifting clouds
 - All sound effects synthesized at runtime with WebAudio — zero asset downloads
 - Settings (sensitivity, volume, pixelate mode) persisted in localStorage
+
+## Accounts & levels
+
+Accounts are optional — play as a guest anytime. Registering locks your name, saves
+your progress server-side, and makes it visible to everyone in a match.
+
+- **XP**: 10 per kill, 50 per match win (capped at 300/match)
+- **Levels**: reaching level *L+1* costs `100 × L` XP (L1→2: 100, L2→3: 200, …)
+- **Flames** scale in 5 tiers: L5, L10, L15, L20, L25+ — each tier adds bigger flames,
+  embers, and (at the top) a blue-hot core, on nametags and in the HUD
+
+The API is a zero-dependency Node service (`server/server.js`, Node 24's built-in
+SQLite + crypto). Passwords are scrypt-hashed; sessions are opaque bearer tokens.
+
+```sh
+node server/server.js        # listens on 127.0.0.1:4200
+```
+
+Endpoints: `POST /api/register`, `POST /api/login`, `POST /api/logout`,
+`GET /api/me`, `POST /api/report` (match-end XP, cooldown + sanity capped).
+
 
 ## Controls
 
@@ -73,9 +96,10 @@ python3 -m http.server 8080
 index.html          entry point + all UI markup
 css/style.css       HUD & menu styling
 js/main.js          game loop, match flow, netplay glue, projectiles, explosions
+js/account.js       client-side account session (login/register/XP reporting)
 js/player.js        FPS controller: movement, shooting, weapons
 js/bot.js           bot AI, names, difficulty tiers
-js/avatar.js        shared character mesh + nametag builder
+js/avatar.js        shared character mesh + nametag builder (flames by level)
 js/netplayer.js     networked entities (host-side avatar, client-side ghost)
 js/net.js           trystero room/protocol adapter
 js/world.js         arena geometry, colliders, nav points, spawns
@@ -84,6 +108,7 @@ js/pickups.js       health / grenade / quad pickups
 js/effects.js       particles, tracers, impacts, explosions
 js/audio.js         WebAudio-synthesized SFX
 js/hud.js           DOM/canvas HUD rendering
+server/server.js    zero-dependency Node API: accounts, sessions, XP (SQLite)
 vendor/three.min.js bundled three.js
 vendor/trystero.js  bundled WebRTC matchmaking (Nostr signaling)
 ```
