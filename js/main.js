@@ -100,8 +100,26 @@ Game.prototype.initGL = function () {
   this.camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.08, 400);
   this.camera.rotation.order = 'YXZ';
   this.scene.add(this.camera);
-  this.world = buildWorld(this.scene);
+  this.mapKey = 'arena';
+  this.world = buildWorld(this.scene, 'arena');
   this.menuAngle = 0;
+};
+
+Game.prototype.rebuildWorld = function (key) {
+  const w = this.world;
+  if (w) {
+    this.scene.remove(w.group);
+    if (w.sun) { this.scene.remove(w.sun); this.scene.remove(w.sun.target); }
+    if (w.hemi) this.scene.remove(w.hemi);
+  }
+  this.world = buildWorld(this.scene, key || this.mapKey || 'arena');
+  this.mapKey = this.world.key;
+  return this.world;
+};
+
+Game.prototype.pickMap = function () {
+  this.mapKey = U.pick(Object.keys(MAPS));
+  this.rebuildWorld(this.mapKey);
 };
 
 Game.prototype.applyResolution = function () {
@@ -454,6 +472,7 @@ Game.prototype._commonStart = function () {
 
 Game.prototype.startMatch = function () {
   this.clearMatchObjects();
+  this.pickMap();
   const sel = this._readMenuCfg();
   this.cfg.limit = sel.limit;
   this.cfg.diff = sel.diff;
@@ -478,6 +497,7 @@ Game.prototype.startMatch = function () {
 Game.prototype.beginMatchHost = function () {
   if (!this.net || this.netRole !== 'host') return;
   this.clearMatchObjects();
+  this.pickMap();
   const sel = this._readMenuCfg();
   this.cfg.limit = sel.limit;
   this.cfg.diff = sel.diff;
@@ -508,7 +528,7 @@ Game.prototype.beginMatchHost = function () {
     this.entMeta[bid] = { name: names[i], hex: cols[i], lvl: 0, clsKey: b.clsKey };
   }
   this.pickups = new Pickups(this);
-  this.netSend('start', { limit: this.cfg.limit, diff: this.cfg.diff, roster: this._rosterMsg(), bots: this.botMeta });
+  this.netSend('start', { limit: this.cfg.limit, diff: this.cfg.diff, roster: this._rosterMsg(), bots: this.botMeta, map: this.mapKey });
   this._commonStart();
   if (this.publicRoom) Matchmaker.announceStart(this.roomCode);
 };
@@ -517,6 +537,7 @@ Game.prototype.beginMatchClient = function (pl) {
   this.clearMatchObjects();
   this.cfg.limit = pl.limit;
   this.cfg.diff = pl.diff;
+  if (pl.map && MAPS[pl.map]) this.rebuildWorld(pl.map);
   const me = this.roster.find(r => r.pid === this.net.selfId);
   this.botMeta = pl.bots || [];
   this.player = new Player(this, me ? me.cls : 'assault');
@@ -858,7 +879,7 @@ Game.prototype.setupNetHandlers = function () {
     }
     this.netSend('roster', this._rosterMsg());
     this.updateLobbyUI();
-    this.netSend('start', { limit: this.cfg.limit, diff: this.cfg.diff, roster: this._rosterMsg(), bots: this.botMeta }, pid);
+    this.netSend('start', { limit: this.cfg.limit, diff: this.cfg.diff, roster: this._rosterMsg(), bots: this.botMeta, map: this.mapKey }, pid);
     this.sfx.play('ui');
   });
 

@@ -23,6 +23,7 @@ A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https
 - **Expressive avatars** — class-geared voxel characters (helmet/backpack/chest armor), procedurally textured limbs with class emblems and glowing visors; remote players and bots visibly aim, track targets up/down, crouch, dash-lean, kick back on shots, and topple over on death with a spawn pop-in
 - **HUD**: dynamic crosshair, radar minimap, live scoreboard (hold Tab), FPS meter, damage vignettes
 - Procedurally built arena — central platform, corner towers, containers, crates, drifting clouds
+- **3 maps** — Arena (classic towers), Bunker (gated rooms + central stronghold), Factory (machine corridors + crate stacks); a random one is picked every match, synced across players; PLAY AGAIN re-rolls
 - All sound effects synthesized at runtime with WebAudio — zero asset downloads
 - Settings (sensitivity, volume, pixelate mode) persisted in localStorage
 
