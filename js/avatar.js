@@ -19,10 +19,13 @@ function makeNameTag(name, colorHex, level) {
   const spr = new THREE.Sprite(mat);
   spr.scale.set(1.9, 0.71, 1);
   let lastDraw = 0;
+  let lastHp = 1;
+  let talking = false;
   const api = {
     sprite: spr,
     tier: tier,
     draw(hpFrac) {
+      lastHp = hpFrac;
       const g = cv.getContext('2d');
       g.clearRect(0, 0, 256, 96);
       g.font = '900 27px Arial';
@@ -32,6 +35,16 @@ function makeNameTag(name, colorHex, level) {
       g.strokeText(name, 128, 64);
       g.fillStyle = '#' + colorHex.toString(16).padStart(6, '0');
       g.fillText(name, 128, 64);
+      if (talking) {
+        g.beginPath();
+        g.arc(34, 55, 8, 0, Math.PI * 2);
+        g.fillStyle = 'rgba(0,0,0,0.75)';
+        g.fill();
+        g.beginPath();
+        g.arc(34, 55, 5.5, 0, Math.PI * 2);
+        g.fillStyle = '#7ddf36';
+        g.fill();
+      }
       g.fillStyle = 'rgba(0,0,0,0.65)';
       g.fillRect(58, 76, 140, 11);
       const w = Math.max(0, hpFrac) * 136;
@@ -39,6 +52,11 @@ function makeNameTag(name, colorHex, level) {
       g.fillRect(60, 78, w, 7);
       if (tier > 0) this._flames(g);
       tex.needsUpdate = true;
+    },
+    setTalking(on) {
+      if (talking === on) return;
+      talking = on;
+      this.draw(lastHp);
     },
     _flames(g) {
       const t = FLAME_TIERS[tier];

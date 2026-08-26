@@ -45,6 +45,10 @@ Voice.prototype.start = async function () {
 };
 
 Voice.prototype.stop = function () {
+  for (const pid of this.peers.keys()) {
+    const e = this._entityFor(pid);
+    if (e && e.tag && e.tag.setTalking) e.tag.setTalking(false);
+  }
   if (this.stream) this.stream.getTracks().forEach(t => t.stop());
   for (const p of this.peers.values()) this._dropGraph(p);
   this.peers.clear();
@@ -90,6 +94,8 @@ Voice.prototype.onRemoteStream = function (pid, stream) {
 Voice.prototype._dropPeer = function (pid) {
   const p = this.peers.get(pid);
   if (!p) return;
+  const e = this._entityFor(pid);
+  if (e && e.tag && e.tag.setTalking) e.tag.setTalking(false);
   this._dropGraph(p);
   this.peers.delete(pid);
   this.talkers.delete(pid);
@@ -151,6 +157,8 @@ Voice.prototype.update = function (dt) {
       const talking = this._rms(p.an, p.buf) > 0.055;
       if (talking) this.talkers.add(pid);
       else this.talkers.delete(pid);
+      const e = this._entityFor(pid);
+      if (e && e.tag && e.tag.setTalking) e.tag.setTalking(talking);
     }
   }
 };

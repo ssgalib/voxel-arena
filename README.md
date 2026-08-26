@@ -9,7 +9,7 @@ A fast, browser-based voxel FPS deathmatch — a fan tribute to [poxel.io](https
 ## Features
 
 - **Online multiplayer** — peer-to-peer over WebRTC (no game server): host a private match and share the 5-char code; up to 7 players plus bot fill
-- **Positional voice chat** — push-to-talk (hold V) over the same P2P WebRTC connections; voices fade and pan with the speaker's position, works in the lobby too
+- **Positional voice chat** — push-to-talk (hold V) over the same P2P WebRTC connections; voices fade and pan with the speaker's position, works in the lobby too; a green dot flashes on the nametag of whoever is talking
 - **Accounts & levels** — optional accounts with unique name + password; earn XP for kills and wins, level up, and your name literally catches fire
 - **Burning names** — the higher your level, the fiercer your nametag flames (ember glow → flame tongues → blue-hot inferno at L25+), in-game and in the kill feed/scoreboard
 - **FFA deathmatch** against AI bots with patrol / hunt / engage behavior, line-of-sight targeting, strafing, and three difficulty tiers
