@@ -243,7 +243,9 @@ function animateAvatar(av, hsp, dt, aiming, pitch, crouch) {
     av.head.position.y = 1.83 - 0.42 * c;
     av.visor.position.y = 1.87 - 0.42 * c;
     av.gun.position.y = 1.28 - 0.35 * c;
-    av.tag.sprite.position.y = 2.72 - 0.42 * c;
+    const tagTarget = av.crown && av.crown.visible ? 3.16 : 2.72;
+    av.tagY = U.damp(av.tagY || 2.72, tagTarget, 8, dt);
+    av.tag.sprite.position.y = av.tagY - 0.42 * c;
   }
   av.armL.rotation.x = U.lerp(-s * swing * 0.7, -1.05, a * 0.85);
   av.armR.rotation.x = U.lerp(s * swing * 0.7 - 0.25, -1.3 - p * 0.55, a);
