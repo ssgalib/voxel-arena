@@ -446,7 +446,6 @@ Game.prototype._readMenuCfg = function () {
 
 Game.prototype._commonStart = function () {
   U.el('menu').classList.add('hidden');
-  U.el('mp').classList.add('hidden');
   U.el('end').classList.add('hidden');
   U.el('hud').classList.remove('hidden');
   this.state = 'playing';
@@ -776,9 +775,17 @@ Game.prototype._teardownNet = function () {
   this.helloAcked = false;
 };
 
+Game.prototype._showTab = function (name) {
+  const tabs = { play: 'menuPlay', private: 'menuPrivate' };
+  const btns = { play: 'tabPlayBtn', private: 'tabPrivateBtn' };
+  for (const k in tabs) {
+    U.el(tabs[k]).classList.toggle('hidden', k !== name);
+    U.el(btns[k]).classList.toggle('sel', k === name);
+  }
+};
+
 Game.prototype._showLobby = function (isHost) {
-  U.el('menu').classList.add('hidden');
-  U.el('mp').classList.remove('hidden');
+  this._showTab('private');
   U.el('mpEntry').classList.add('hidden');
   U.el('mpLobby').classList.remove('hidden');
   U.el('mpStartBtn').classList.toggle('hidden', !isHost);
@@ -815,8 +822,6 @@ Game.prototype.leaveLobby = function () {
   U.el('mpLobby').classList.add('hidden');
   U.el('mpEntry').classList.remove('hidden');
   this._mpStatus('', '');
-  U.el('mp').classList.add('hidden');
-  U.el('menu').classList.remove('hidden');
   this.sfx.play('ui');
 };
 
@@ -1065,12 +1070,12 @@ Game.prototype.quitToMenu = function () {
   U.el('pause').classList.add('hidden');
   U.el('end').classList.add('hidden');
   U.el('hud').classList.add('hidden');
-  U.el('mp').classList.add('hidden');
   U.el('mpLobby').classList.add('hidden');
   U.el('mpEntry').classList.remove('hidden');
   U.el('rematchBtn').classList.remove('hidden');
   U.el('endWait').classList.add('hidden');
   this._mpStatus('', '');
+  this._showTab('play');
   U.el('menu').classList.remove('hidden');
 };
 
@@ -1086,13 +1091,12 @@ Game.prototype.bindUI = function () {
   };
   U.el('endMenuBtn').onclick = () => { self.sfx.play('ui'); self.quitToMenu(); };
 
-  U.el('mpBtn').onclick = () => {
-    self.sfx.ensure(); self.sfx.play('ui');
-    U.el('menu').classList.add('hidden');
-    U.el('mp').classList.remove('hidden');
-    U.el('mpEntry').classList.remove('hidden');
-    U.el('mpLobby').classList.add('hidden');
-    self._mpStatus('', '');
+  U.el('tabPlayBtn').onclick = () => { self.sfx.ensure(); self.sfx.play('ui'); self._showTab('play'); };
+  U.el('tabPrivateBtn').onclick = () => { self.sfx.ensure(); self.sfx.play('ui'); self._showTab('private'); };
+  U.el('ctrlToggle').onclick = () => {
+    const hidden = U.el('controlsGrid').classList.toggle('hidden');
+    U.el('ctrlToggle').textContent = hidden ? 'SHOW CONTROLS' : 'HIDE CONTROLS';
+    self.sfx.play('ui');
   };
   U.el('mpBackBtn').onclick = () => { self.sfx.play('ui'); self.leaveLobby(); };
   U.el('hostBtn').onclick = () => self.mpHost();

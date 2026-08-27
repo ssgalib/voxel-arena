@@ -5,7 +5,7 @@
 <title>VOXEL ARENA — fast voxel FPS</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b0e13'/%3E%3Crect x='2' y='2' width='12' height='12' fill='%23c6ff37'/%3E%3Crect x='5' y='5' width='6' height='6' fill='%230b0e13'/%3E%3Crect x='7' y='2' width='2' height='12' fill='%23c6ff37'/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="css/style.css?v=7">
+<link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -58,95 +58,98 @@
     <h1 class="title">VOXEL<span>ARENA</span></h1>
     <p class="subtitle">fast voxel fps &mdash; fan tribute to poxel.io</p>
 
-    <div id="acct">
-      <div id="acctOut">
-        <div class="label">ACCOUNT <i class="opt">(optional &mdash; earn levels &amp; flame names)</i></div>
-        <div class="acctRow">
-          <input id="acctUser" maxlength="14" placeholder="NAME" spellcheck="false" autocomplete="username">
-          <input id="acctPass" type="password" maxlength="100" placeholder="PASSWORD" spellcheck="false" autocomplete="current-password">
-        </div>
-        <div class="acctRow">
-          <button id="loginBtn" class="seg acctBtn">LOG IN</button>
-          <button id="regBtn" class="seg acctBtn">REGISTER</button>
-        </div>
-        <div id="acctMsg"></div>
-      </div>
-      <div id="acctIn" class="hidden">
-        <div class="label">ACCOUNT</div>
-        <div id="acctWho"></div>
-        <div id="acctBar"><div id="acctFill"></div></div>
-        <div id="acctXp"></div>
-        <button id="logoutBtn" class="seg acctBtn">LOG OUT</button>
-      </div>
+    <div class="tabRow">
+      <button id="tabPlayBtn" class="seg tabBtn sel">QUICK PLAY</button>
+      <button id="tabPrivateBtn" class="seg tabBtn">PRIVATE MATCH</button>
     </div>
 
-    <input id="nameInput" maxlength="14" placeholder="PLAYER" spellcheck="false">
-
-    <div class="label">CLASS</div>
-    <div id="classRow">
-      <div class="classCard sel" data-class="assault"><h3>Assault</h3><em>100 HP &middot; normal speed</em><i>Balanced fighter</i></div>
-      <div class="classCard" data-class="scout"><h3>Scout</h3><em>75 HP &middot; fast + quick dash</em><i>Speed demon</i></div>
-      <div class="classCard" data-class="heavy"><h3>Heavy</h3><em>150 HP &middot; slow &middot; blast resist</em><i>Tank</i></div>
-    </div>
-
-    <div class="row2">
-      <div>
-        <div class="label">BOTS</div>
-        <div class="segRow" id="diffRow">
-          <button class="seg" data-diff="easy">EASY</button>
-          <button class="seg sel" data-diff="normal">NORMAL</button>
-          <button class="seg" data-diff="hard">HARD</button>
+    <div id="menuPlay">
+      <div id="acct">
+        <div id="acctOut">
+          <div class="label">ACCOUNT <i class="opt">(optional &mdash; earn levels &amp; flame names)</i></div>
+          <div class="acctRow">
+            <input id="acctUser" maxlength="14" placeholder="NAME" spellcheck="false" autocomplete="username">
+            <input id="acctPass" type="password" maxlength="100" placeholder="PASSWORD" spellcheck="false" autocomplete="current-password">
+          </div>
+          <div class="acctRow">
+            <button id="loginBtn" class="seg acctBtn">LOG IN</button>
+            <button id="regBtn" class="seg acctBtn">REGISTER</button>
+          </div>
+          <div id="acctMsg"></div>
+        </div>
+        <div id="acctIn" class="hidden">
+          <div class="label">ACCOUNT</div>
+          <div id="acctWho"></div>
+          <div id="acctBar"><div id="acctFill"></div></div>
+          <div id="acctXp"></div>
+          <button id="logoutBtn" class="seg acctBtn">LOG OUT</button>
         </div>
       </div>
-      <div>
-        <div class="label">KILLS TO WIN</div>
-        <div class="segRow" id="targetRow">
-          <button class="seg" data-target="10">10</button>
-          <button class="seg sel" data-target="20">20</button>
-          <button class="seg" data-target="30">30</button>
+
+      <input id="nameInput" maxlength="14" placeholder="PLAYER" spellcheck="false">
+
+      <div class="label">CLASS</div>
+      <div id="classRow">
+        <div class="classCard sel" data-class="assault"><h3>Assault</h3><em>100 HP &middot; normal speed</em><i>Balanced fighter</i></div>
+        <div class="classCard" data-class="scout"><h3>Scout</h3><em>75 HP &middot; fast + quick dash</em><i>Speed demon</i></div>
+        <div class="classCard" data-class="heavy"><h3>Heavy</h3><em>150 HP &middot; slow &middot; blast resist</em><i>Tank</i></div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <div class="label">BOTS</div>
+          <div class="segRow" id="diffRow">
+            <button class="seg" data-diff="easy">EASY</button>
+            <button class="seg sel" data-diff="normal">NORMAL</button>
+            <button class="seg" data-diff="hard">HARD</button>
+          </div>
+        </div>
+        <div>
+          <div class="label">KILLS TO WIN</div>
+          <div class="segRow" id="targetRow">
+            <button class="seg" data-target="10">10</button>
+            <button class="seg sel" data-target="20">20</button>
+            <button class="seg" data-target="30">30</button>
+          </div>
         </div>
       </div>
+
+      <button id="playBtn" class="big">DEPLOY</button>
     </div>
 
-    <button id="playBtn">DEPLOY</button>
-    <button id="mpBtn" class="ghost">MULTIPLAYER &mdash; HOST / JOIN</button>
+    <div id="menuPrivate" class="hidden">
+      <div id="mpEntry">
+        <div class="label">HOST A PRIVATE MATCH</div>
+        <button id="hostBtn" class="seg mpWide">CREATE PRIVATE MATCH</button>
+        <div class="label">OR JOIN WITH A CODE</div>
+        <div class="joinRow">
+          <input id="joinCode" maxlength="8" placeholder="CODE" spellcheck="false" autocomplete="off">
+          <button id="joinBtn" class="seg">JOIN</button>
+        </div>
+        <p class="hint">Peer-to-peer over WebRTC &mdash; no server needed. Share the code with friends; the host simulates bots and scoring. Up to 7 players.</p>
+      </div>
 
-    <div id="controlsGrid">
+      <div id="mpLobby" class="hidden">
+        <div class="label">MATCH CODE &mdash; SHARE WITH FRIENDS</div>
+        <div class="codeRow"><span id="mpCodeBox"></span><button id="copyCodeBtn" class="seg">COPY</button></div>
+        <div class="label">PLAYERS (<span id="mpCount">1</span>/8)</div>
+        <div id="mpRoster"></div>
+        <button id="mpStartBtn" class="big">START MATCH</button>
+        <div id="mpWaitTxt" class="waitTxt hidden"></div>
+        <button id="mpBackBtn" class="ghost">BACK</button>
+      </div>
+
+      <div id="mpStatus"></div>
+    </div>
+
+    <button id="ctrlToggle" class="ghost ctrlToggle">SHOW CONTROLS</button>
+    <div id="controlsGrid" class="hidden">
       <span><b>WASD</b> move</span><span><b>SPACE</b> jump</span><span><b>SHIFT</b> run</span>
       <span><b>C</b> crouch</span><span><b>Q / X</b> dash</span><span><b>LMB</b> fire</span>
       <span><b>RMB / E</b> aim</span><span><b>R</b> reload</span><span><b>1-5</b> weapons</span>
       <span><b>G</b> grenade</span><span><b>TAB</b> scores</span><span><b>M</b> mute</span><span><b>V</b> voice</span>
     </div>
     <p class="foot">Fan-made tribute. Not affiliated with poxel.io. Built with three.js.</p>
-  </div>
-</div>
-
-<div id="mp" class="hidden">
-  <div class="panel menuPanel">
-    <h2 class="mpTitle">MULTIPLAYER</h2>
-
-    <div id="mpEntry">
-      <div class="label">HOST A MATCH</div>
-      <button id="hostBtn" class="seg mpWide">CREATE PRIVATE MATCH</button>
-      <div class="label">OR JOIN WITH A CODE</div>
-      <div class="joinRow">
-        <input id="joinCode" maxlength="8" placeholder="CODE" spellcheck="false" autocomplete="off">
-        <button id="joinBtn" class="seg">JOIN</button>
-      </div>
-      <p class="hint">Peer-to-peer over WebRTC &mdash; no server needed. Share the code with friends; the host simulates bots and scoring. Up to 7 players.</p>
-    </div>
-
-    <div id="mpLobby" class="hidden">
-      <div class="label">MATCH CODE &mdash; SHARE WITH FRIENDS</div>
-      <div class="codeRow"><span id="mpCodeBox"></span><button id="copyCodeBtn" class="seg">COPY</button></div>
-      <div class="label">PLAYERS (<span id="mpCount">1</span>/8)</div>
-      <div id="mpRoster"></div>
-      <button id="mpStartBtn" class="big">START MATCH</button>
-      <div id="mpWaitTxt" class="waitTxt hidden"></div>
-    </div>
-
-    <div id="mpStatus"></div>
-    <button id="mpBackBtn" class="ghost">BACK TO MENU</button>
   </div>
 </div>
 
@@ -182,22 +185,22 @@
 </div>
 
 <script src="vendor/three.min.js"></script>
-<script src="js/util.js?v=7"></script>
-<script src="js/account.js?v=7"></script>
-<script src="js/audio.js?v=7"></script>
-<script src="js/world.js?v=7"></script>
-<script src="js/effects.js?v=7"></script>
-<script src="js/weapons.js?v=7"></script>
-<script src="js/pickups.js?v=7"></script>
-<script src="js/avatar.js?v=7"></script>
-<script src="js/bot.js?v=7"></script>
-<script src="js/netplayer.js?v=7"></script>
-<script src="js/net.js?v=7"></script>
-<script src="js/mm.js?v=7"></script>
-<script src="js/voice.js?v=7"></script>
-<script src="js/player.js?v=7"></script>
-<script src="js/hud.js?v=7"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/util.js?v=8"></script>
+<script src="js/account.js?v=8"></script>
+<script src="js/audio.js?v=8"></script>
+<script src="js/world.js?v=8"></script>
+<script src="js/effects.js?v=8"></script>
+<script src="js/weapons.js?v=8"></script>
+<script src="js/pickups.js?v=8"></script>
+<script src="js/avatar.js?v=8"></script>
+<script src="js/bot.js?v=8"></script>
+<script src="js/netplayer.js?v=8"></script>
+<script src="js/net.js?v=8"></script>
+<script src="js/mm.js?v=8"></script>
+<script src="js/voice.js?v=8"></script>
+<script src="js/player.js?v=8"></script>
+<script src="js/hud.js?v=8"></script>
+<script src="js/main.js?v=8"></script>
 <script type="module">
   window.loadTrystero = () =>
     import('./vendor/trystero.js').catch(() => import('https://esm.sh/trystero@0.25.3'));
