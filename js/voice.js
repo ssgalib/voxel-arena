@@ -5,6 +5,7 @@ function Voice(game) {
   this.analyser = null;
   this.buf = null;
   this.peers = new Map();
+  this.pending = new Map();
   this.ptt = false;
   this.active = false;
   this.starting = false;
@@ -13,10 +14,16 @@ function Voice(game) {
   this._rmsT = 0;
 }
 
+Voice.prototype._ctx = function () {
+  if (this.game.sfx.ensure()) return this.game.sfx.ctx;
+  return null;
+};
+
 Voice.prototype.start = async function () {
   if (this.active || this.starting) return;
   if (!this.game.settings.voice) return;
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { this.failed = 'VOICE NOT SUPPORTED'; return; }
+  if (!this.game.net) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { this.failed = 'VOICE NOT SUPPORTED'; this._drainPending(); return; }
   this.starting = true;
   this.failed = '';
   try {
@@ -25,13 +32,14 @@ Voice.prototype.start = async function () {
     });
   } catch (e) {
     this.starting = false;
-    this.failed = 'MIC BLOCKED \u2014 CHECK PERMISSIONS';
+    this.failed = 'MIC BLOCKED \u2014 CAN STILL HEAR OTHERS';
+    this._drainPending();
     return;
   }
   this.starting = false;
   if (!this.game.net) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; return; }
   this.track = this.stream.getAudioTracks()[0];
-  const ctx = this.game.sfx.ensure() ? this.game.sfx.ctx : null;
+  const ctx = this._ctx();
   if (!ctx) { this.failed = 'AUDIO UNAVAILABLE'; return; }
   this.analyser = ctx.createAnalyser();
   this.analyser.fftSize = 256;
@@ -39,9 +47,16 @@ Voice.prototype.start = async function () {
   ctx.createMediaStreamSource(this.stream).connect(this.analyser);
   this.active = true;
   this.game.net.addStream(this.stream);
-  const existing = this.game.net.getStreams();
-  for (const pid in existing) this.onRemoteStream(pid, existing[pid]);
   this.game.hud.subAnnounce('VOICE ON \u2014 HOLD V TO TALK');
+};
+
+Voice.prototype._drainPending = function () {
+  if (!this.pending.size) return;
+  if (!this._ctx()) return;
+  for (const [pid, stream] of this.pending) {
+    if (!this.peers.has(pid)) this._buildGraph(pid, stream);
+  }
+  this.pending.clear();
 };
 
 Voice.prototype.stop = function () {
@@ -52,6 +67,7 @@ Voice.prototype.stop = function () {
   if (this.stream) this.stream.getTracks().forEach(t => t.stop());
   for (const p of this.peers.values()) this._dropGraph(p);
   this.peers.clear();
+  this.pending.clear();
   this.talkers.clear();
   this.stream = null;
   this.track = null;
@@ -70,7 +86,15 @@ Voice.prototype._dropGraph = function (p) {
 };
 
 Voice.prototype.onRemoteStream = function (pid, stream) {
-  if (!this.active) return;
+  if (!stream) return;
+  const ctx = this._ctx();
+  if (!ctx) { this.pending.set(pid, stream); return; }
+  if (this.peers.has(pid) && this.peers.get(pid).srcStream === stream) return;
+  this.pending.delete(pid);
+  this._buildGraph(pid, stream);
+};
+
+Voice.prototype._buildGraph = function (pid, stream) {
   const ctx = this.game.sfx.ctx;
   this._dropPeer(pid);
   const el = document.createElement('audio');
@@ -84,7 +108,7 @@ Voice.prototype.onRemoteStream = function (pid, stream) {
   const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
   const an = ctx.createAnalyser();
   an.fftSize = 256;
-  const p = { src: src, gain: gain, pan: pan, an: an, buf: new Uint8Array(an.fftSize), el: el, lvl: 0, inLobby: true };
+  const p = { src: src, gain: gain, pan: pan, an: an, buf: new Uint8Array(an.fftSize), el: el, lvl: 0, inLobby: true, srcStream: stream };
   src.connect(an);
   if (pan) { src.connect(gain); gain.connect(pan); pan.connect(ctx.destination); }
   else { src.connect(gain); gain.connect(ctx.destination); }
@@ -102,7 +126,10 @@ Voice.prototype._dropPeer = function (pid) {
   this.talkers.delete(pid);
 };
 
-Voice.prototype.dropPeer = function (pid) { this._dropPeer(pid); };
+Voice.prototype.dropPeer = function (pid) {
+  this.pending.delete(pid);
+  this._dropPeer(pid);
+};
 
 Voice.prototype._entityFor = function (pid) {
   const g = this.game;
@@ -122,8 +149,9 @@ Voice.prototype._nameFor = function (pid) {
 };
 
 Voice.prototype.update = function (dt) {
-  if (!this.active) return;
   const g = this.game;
+  if (this.pending.size && this._ctx()) this._drainPending();
+  if (!this.active) return;
   const openMic = !!g.settings.openMic;
   if (this.track) this.track.enabled = openMic || this.ptt;
   if (!g.net) return;
